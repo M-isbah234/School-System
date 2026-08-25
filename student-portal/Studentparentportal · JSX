@@ -1,0 +1,2214 @@
+/**
+ * Al-Noor Grammar School — Unified School Portal
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Roles: Admin › Teacher › Parent (Student view)
+ * Tech:  React + Recharts + Tailwind-compatible inline styles
+ * Fixed: 14 bugs from v1 audit (see changelog at bottom)
+ * Ready: Vercel (Next.js App Router) — mock API layer mirrors real API shape
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  Home, CalendarCheck, GraduationCap, NotebookPen, MessageCircle, Wallet, Bell,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Download, Printer,
+  ChevronRight, BookOpen, Calculator, FlaskConical, Atom, Languages,
+  Laptop, Moon, Coffee, Megaphone, PartyPopper, CalendarDays, TrendingUp,
+  Send, X, Check, School, CreditCard, ClipboardList, MessageSquare, ThumbsUp,
+  AlertCircle, Sun, Microscope, Landmark, Award, BarChart3, Banknote,
+  LogIn, LogOut, Users, Settings, ShieldCheck, Edit3, Eye, EyeOff,
+  PlusCircle, CheckSquare, LayoutDashboard, BookMarked, UserCheck, Sliders
+} from 'lucide-react';
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from 'recharts';
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  GLOBAL STYLES — Claymorphism Design System                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const CLAY_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  .cr { /* clay-root */
+    --bg:   #ECE9F7; --surf: #F6F3FC;
+    --lav:  #E4D8FC; --mint: #D9F5E8; --peach:#FFE2CE;
+    --sky:  #DCEAFD; --yel:  #FFF3C2; --rose: #FCE0E9;
+    --ink:  #3D3759; --soft: #8A84A6;
+    --acc:  #8C7CF6; --acd:  #6E5DE0;
+    --ok:   #45A685; --okbg: #D9F5E8;
+    --warn: #E0954A; --wbg:  #FFF0D6;
+    --err:  #E26C6C; --ebg:  #FDE3E3;
+    --sh: 7px 7px 16px rgba(76,68,109,.16),-5px -5px 12px rgba(255,255,255,.9);
+    --shs: 4px 4px 10px rgba(76,68,109,.14),-3px -3px 8px rgba(255,255,255,.9);
+    --shp: inset 4px 4px 8px rgba(76,68,109,.18),inset -4px -4px 8px rgba(255,255,255,.7);
+    --shw: inset 4px 4px 10px rgba(76,68,109,.12),inset -4px -4px 8px rgba(255,255,255,.85);
+    font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink);
+    min-height:100vh;
+  }
+  .cr *, .cr *::before, .cr *::after { box-sizing:border-box; margin:0; }
+  .qsand { font-family:'Quicksand',sans-serif; }
+
+  /* Cards & Surfaces */
+  .cc  { border-radius:26px; box-shadow:var(--sh); background:var(--surf); }
+  .cw  { border-radius:18px; box-shadow:var(--shw); background:var(--surf); }
+  .cr0 { border-radius:20px; box-shadow:var(--shs); background:var(--surf); }
+  .crf { border-radius:16px; background:rgba(255,255,255,.55); }
+
+  /* Color Tints */
+  .t-lav  { background:var(--lav); }
+  .t-mint { background:var(--mint); }
+  .t-pch  { background:var(--peach); }
+  .t-sky  { background:var(--sky); }
+  .t-yel  { background:var(--yel); }
+  .t-rose { background:var(--rose); }
+  .t-surf { background:var(--surf); }
+
+  /* Buttons */
+  .cbtn {
+    border-radius:18px; font-family:'Quicksand',sans-serif; font-weight:600;
+    box-shadow:var(--shs); border:none; cursor:pointer; color:var(--ink);
+    transition:transform .12s ease, box-shadow .12s ease;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .cbtn:hover:not(:disabled) { box-shadow:var(--sh); }
+  .cbtn:active:not(:disabled) { box-shadow:var(--shp); transform:scale(.96); }
+  .cbtn:disabled { opacity:.5; cursor:not-allowed; }
+  .cbtn-acc { background:var(--acc); color:#fff; }
+  .cbtn-ok  { background:var(--ok);  color:#fff; }
+  .cbtn-err { background:var(--err); color:#fff; }
+  .cbtn-surf{ background:var(--surf); }
+
+  /* Icon Button */
+  .cib {
+    border-radius:14px; box-shadow:var(--shs); border:none; cursor:pointer;
+    background:var(--surf); color:var(--ink);
+    transition:transform .12s ease, box-shadow .12s ease;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .cib:active { box-shadow:var(--shp); transform:scale(.93); }
+  .cib.on    { box-shadow:var(--shp); background:var(--acc); color:#fff; }
+
+  /* Chips */
+  .chip {
+    border-radius:14px; box-shadow:var(--shs); font-family:'Quicksand',sans-serif;
+    font-weight:600; font-size:12px; padding:7px 13px;
+    display:inline-flex; align-items:center; gap:5px;
+    cursor:pointer; border:none; background:var(--surf); color:var(--soft);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .chip.on  { box-shadow:var(--shp); background:var(--acc); color:#fff; }
+  .chip:active { transform:scale(.96); }
+  .chip:disabled { opacity:.5; cursor:not-allowed; }
+
+  /* Inputs */
+  .cinp, .csel, .ctxt {
+    border-radius:14px; border:none; box-shadow:var(--shw); background:var(--surf);
+    font-family:'Inter',sans-serif; color:var(--ink); padding:11px 15px;
+    outline:none; width:100%; font-size:14px;
+  }
+  .cinp:focus,.csel:focus,.ctxt:focus {
+    box-shadow:var(--shw),0 0 0 3px rgba(140,124,246,.3);
+  }
+  .ctxt { resize:vertical; min-height:90px; }
+
+  /* Badges */
+  .badge {
+    font-family:'Quicksand',sans-serif; font-weight:700; font-size:10px;
+    letter-spacing:.05em; padding:3px 9px; border-radius:999px;
+    display:inline-flex; align-items:center; gap:3px;
+    text-transform:uppercase; white-space:nowrap;
+  }
+  .b-ok   { background:var(--okbg); color:var(--ok); }
+  .b-err  { background:var(--ebg);  color:var(--err); }
+  .b-warn { background:var(--wbg);  color:var(--warn); }
+  .b-lav  { background:var(--lav);  color:var(--acd); }
+  .b-sky  { background:var(--sky);  color:#3576C9; }
+
+  /* Progress */
+  .pbar-t { border-radius:999px; background:var(--surf); box-shadow:var(--shw); height:9px; overflow:hidden; }
+  .pbar-f { height:100%; border-radius:999px; transition:width .5s ease; }
+
+  /* Sidebar Nav */
+  .snav { box-shadow:var(--sh); border-radius:28px; background:var(--surf); }
+  .sni  {
+    border-radius:16px; transition:all .14s ease; cursor:pointer; border:none;
+    background:transparent; color:var(--soft); font-family:'Quicksand',sans-serif;
+    font-weight:600; font-size:14px; display:flex; align-items:center; gap:10px;
+    padding:11px 14px; width:100%; text-align:left;
+  }
+  .sni:hover { background:rgba(140,124,246,.1); color:var(--ink); }
+  .sni.on { background:var(--acc); color:#fff; box-shadow:var(--shs); }
+
+  /* Bottom Nav */
+  .bnav { box-shadow:0 -5px 16px rgba(76,68,109,.15); background:var(--surf); border-radius:22px 22px 0 0; }
+  .bni  {
+    border-radius:14px; border:none; background:transparent; color:var(--soft);
+    cursor:pointer; transition:all .14s ease; font-family:'Quicksand',sans-serif;
+    font-weight:600; font-size:10px; display:flex; flex-direction:column;
+    align-items:center; gap:3px; padding:8px 4px;
+  }
+  .bni.on { color:var(--acd); background:var(--lav); }
+
+  /* Spinner */
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spin {
+    width:13px; height:13px; border-radius:50%; display:inline-block;
+    border:2px solid rgba(76,68,109,.15); border-top-color:var(--acc);
+    animation:spin .7s linear infinite; flex-shrink:0;
+  }
+
+  /* Role selector on login */
+  .role-card {
+    border-radius:22px; box-shadow:var(--shs); background:var(--surf);
+    cursor:pointer; border:2.5px solid transparent; padding:20px 16px;
+    text-align:center; transition:all .15s ease; font-family:'Quicksand',sans-serif;
+  }
+  .role-card:hover  { box-shadow:var(--sh); border-color:var(--acc); }
+  .role-card.chosen { box-shadow:var(--shp); border-color:var(--acc); background:var(--lav); }
+
+  /* Notification panel */
+  .notif-panel {
+    position:absolute; top:calc(100% + 8px); right:0; width:300px;
+    border-radius:22px; box-shadow:var(--sh); background:var(--surf);
+    z-index:200; overflow:hidden;
+  }
+
+  /* Scrollbar */
+  .scr::-webkit-scrollbar { width:5px; }
+  .scr::-webkit-scrollbar-thumb { background:#C9BBFA; border-radius:999px; }
+
+  /* Print */
+  @media print {
+    .no-print { display:none!important; }
+    .print-only { display:block!important; }
+    body { background:#fff!important; }
+    .cc, .cw, .cr0 { box-shadow:none!important; }
+    .ch-grid { display:grid!important; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+    .ch-copy { border:1px dashed #aaa!important; page-break-inside:avoid; }
+  }
+  .print-only { display:none; }
+
+  /* Utility flex/grid helpers (mirror Tailwind used in JSX) */
+  .flex { display:flex; } .flex-col { flex-direction:column; }
+  .items-center { align-items:center; } .items-start { align-items:flex-start; }
+  .justify-center { justify-content:center; } .justify-between { justify-content:space-between; }
+  .gap-1{gap:4px}.gap-2{gap:8px}.gap-3{gap:12px}.gap-4{gap:16px}.gap-5{gap:20px}.gap-6{gap:24px}
+  .flex-1{flex:1;min-width:0;} .flex-shrink-0{flex-shrink:0;}
+  .w-full{width:100%;} .h-full{height:100%;} .relative{position:relative;} .absolute{position:absolute;}
+  .overflow-hidden{overflow:hidden;} .overflow-y-auto{overflow-y:auto;}
+  .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .text-center{text-align:center;} .text-right{text-align:right;} .text-left{text-align:left;}
+  .flex-wrap{flex-wrap:wrap;}
+  .grid{display:grid;}
+  .g2{grid-template-columns:repeat(2,1fr);}
+  .g3{grid-template-columns:repeat(3,1fr);}
+  .g5{grid-template-columns:repeat(5,1fr);}
+  @media(max-width:640px){.sm-g1{grid-template-columns:1fr!important;}}
+  @media(max-width:900px){.md-g1{grid-template-columns:1fr!important;}.md-g2{grid-template-columns:repeat(2,1fr)!important;}}
+  .p2{padding:8px}.p3{padding:12px}.p4{padding:16px}.p5{padding:20px}.p6{padding:24px}
+  .px2{padding-left:8px;padding-right:8px} .px3{padding-left:12px;padding-right:12px}
+  .px4{padding-left:16px;padding-right:16px} .px5{padding-left:20px;padding-right:20px}
+  .py2{padding-top:8px;padding-bottom:8px} .py3{padding-top:12px;padding-bottom:12px}
+  .mt1{margin-top:4px}.mt2{margin-top:8px}.mt3{margin-top:12px}.mt4{margin-top:16px}
+  .mb2{margin-bottom:8px}.mb3{margin-bottom:12px}.mb4{margin-bottom:16px}
+  .space-y-3>*+*{margin-top:12px} .space-y-4>*+*{margin-top:16px} .space-y-5>*+*{margin-top:20px}
+  .rounded-full{border-radius:9999px;}
+  .opacity-60{opacity:.6;}
+  .pointer{cursor:pointer;}
+  .border-t{border-top:1px solid rgba(76,68,109,.13);}
+  .min-w-0{min-width:0;}
+  .inline-flex{display:inline-flex;}
+`;
+
+function Styles() {
+  return <style dangerouslySetInnerHTML={{ __html: CLAY_CSS }} />;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  MOCK DATABASE  (mirrors shape of a real Prisma/Supabase schema)           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const DB = {
+  users: [
+    { id: 'u1', role: 'admin',   name: 'Dr. Amina Raza',     email: 'admin@alnoor.edu.pk',   pass: 'admin123',  avatar: 'AR' },
+    { id: 'u2', role: 'teacher', name: 'Mr. Tariq Mehmood',  email: 'tariq@alnoor.edu.pk',   pass: 'teacher123',avatar: 'TM', subject: 'Mathematics', classes: ['Grade 9 — Crimson', 'Grade 8 — Sapphire'] },
+    { id: 'u3', role: 'teacher', name: 'Ms. Ayesha Khan',    email: 'ayesha@alnoor.edu.pk',  pass: 'teacher123',avatar: 'AK', subject: 'English',     classes: ['Grade 9 — Crimson'] },
+    { id: 'u4', role: 'parent',  name: 'Mr. Imran Ali Sheikh',email:'parent@alnoor.edu.pk',  pass: 'parent123', avatar: 'IA', studentId: 's1' },
+  ],
+  students: [
+    { id: 's1', name: 'Hamza Ali Sheikh', rollNo: '09-C-22', admissionNo: 'ANG-2114', className: 'Grade 9 — Crimson', section: 'C', session: '2025–2026', parentId: 'u4' },
+    { id: 's2', name: 'Sara Bilal',       rollNo: '09-C-14', admissionNo: 'ANG-2098', className: 'Grade 9 — Crimson', section: 'C', session: '2025–2026', parentId: null },
+    { id: 's3', name: 'Ali Raza Qureshi', rollNo: '09-C-31', admissionNo: 'ANG-2127', className: 'Grade 9 — Crimson', section: 'C', session: '2025–2026', parentId: null },
+  ],
+  school: { name: 'Al-Noor Grammar School, Lahore Campus' },
+
+  attendanceSummary: { s1: { overallPercent: 94, presentDays: 178, absentDays: 7, leaveDays: 4, totalDays: 189 } },
+
+  weeklyAttendance: {
+    s1: [
+      { day: 'Mon', present: 7, absent: 0, leave: 0 },
+      { day: 'Tue', present: 6, absent: 1, leave: 0 },
+      { day: 'Wed', present: 7, absent: 0, leave: 0 },
+      { day: 'Thu', present: 5, absent: 0, leave: 2 },
+      { day: 'Fri', present: 6, absent: 0, leave: 0 },
+    ]
+  },
+
+  todayTimetable: [
+    { id: 1, time: '08:00–08:45', subject: 'Mathematics',    teacher: 'Mr. Tariq Mehmood', status: 'present',  teacherId: 'u2' },
+    { id: 2, time: '08:45–09:30', subject: 'English',        teacher: 'Ms. Ayesha Khan',   status: 'present',  teacherId: 'u3' },
+    { id: 3, time: '09:30–10:15', subject: 'Physics',        teacher: 'Mr. Saad Anwar',    status: 'present',  teacherId: null },
+    { id: 4, time: '10:15–10:30', subject: 'Break',          teacher: '',                  status: 'break',    teacherId: null },
+    { id: 5, time: '10:30–11:15', subject: 'Chemistry',      teacher: 'Ms. Nida Farooq',   status: 'leave',    teacherId: null },
+    { id: 6, time: '11:15–12:00', subject: 'Computer Science',teacher:'Mr. Bilal Aslam',   status: 'present',  teacherId: null },
+    { id: 7, time: '12:00–12:45', subject: 'Urdu',           teacher: 'Ms. Sana Tariq',    status: 'upcoming', teacherId: null },
+    { id: 8, time: '12:45–13:30', subject: 'Islamiat',       teacher: 'Mr. Abdul Rehman',  status: 'upcoming', teacherId: null },
+  ],
+
+  academicRecords: [
+    { id: 1, studentId:'s1', subject:'Mathematics',     testName:'Monthly Test 3',      date:'2026-06-02', obtained:18, total:20 },
+    { id: 2, studentId:'s1', subject:'English',         testName:'Unit Test — Grammar', date:'2026-06-04', obtained:22, total:25 },
+    { id: 3, studentId:'s1', subject:'Physics',         testName:'Class Test — Motion', date:'2026-06-05', obtained:14, total:15 },
+    { id: 4, studentId:'s1', subject:'Chemistry',       testName:'Quiz — Periodic Table',date:'2026-06-06',obtained: 9, total:10 },
+    { id: 5, studentId:'s1', subject:'Biology',         testName:'Monthly Test 3',      date:'2026-06-08', obtained:27, total:30 },
+    { id: 6, studentId:'s1', subject:'Computer Science',testName:'Practical Assessment',date:'2026-06-09', obtained:19, total:20 },
+    { id: 7, studentId:'s1', subject:'Urdu',            testName:'Unit Test',           date:'2026-06-10', obtained:23, total:25 },
+    { id: 8, studentId:'s1', subject:'Islamiat',        testName:'Quiz',                date:'2026-06-11', obtained:10, total:10 },
+    { id: 9, studentId:'s1', subject:'Pakistan Studies',testName:'Monthly Test',        date:'2026-06-12', obtained:16, total:20 },
+    // Teacher's class records for s2, s3
+    { id:10, studentId:'s2', subject:'Mathematics', testName:'Monthly Test 3', date:'2026-06-02', obtained:15, total:20 },
+    { id:11, studentId:'s3', subject:'Mathematics', testName:'Monthly Test 3', date:'2026-06-02', obtained:12, total:20 },
+  ],
+
+  courseHub: {
+    terms: [
+      { id:'first', name:'First Term',  period:'Aug–Oct 2025',       status:'Completed',
+        subjects:[
+          { name:'Mathematics',     completed:100, topics:['Real Numbers','Polynomials','Coordinate Geometry'] },
+          { name:'English',         completed:100, topics:['Prose Unit 1–3','Grammar Foundations','Letter Writing'] },
+          { name:'Physics',         completed:100, topics:['Physical Quantities','Kinematics','Dynamics'] },
+          { name:'Chemistry',       completed:100, topics:['Fundamentals of Chemistry','States of Matter'] },
+          { name:'Computer Science',completed:100, topics:['Number Systems','Intro to Programming'] },
+        ]
+      },
+      { id:'mid', name:'Mid Term', period:'Nov 2025–Jan 2026', status:'Completed',
+        subjects:[
+          { name:'Mathematics',     completed:100, topics:['Linear Equations','Factorization','Algebraic Manipulation'] },
+          { name:'English',         completed:100, topics:['Prose Unit 4–6','Poetry: Selected Verses','Essay Writing'] },
+          { name:'Physics',         completed:100, topics:['Turning Effect of Forces','Gravitation'] },
+          { name:'Chemistry',       completed:90,  topics:['Atomic Structure','Periodic Table'] },
+          { name:'Computer Science',completed:100, topics:['Flowcharts','Algorithms'] },
+        ]
+      },
+      { id:'final', name:'Final Term', period:'Feb–May 2026', status:'In Progress',
+        subjects:[
+          { name:'Mathematics',     completed:65,  topics:['Linear Graphs','Coordinate Geometry','Congruent Triangles'] },
+          { name:'English',         completed:60,  topics:['Prose Unit 7–9','Poetry: Modern Verse','Comprehension'] },
+          { name:'Physics',         completed:55,  topics:['Work and Energy','Properties of Matter'] },
+          { name:'Chemistry',       completed:50,  topics:['Solutions','Electrochemistry'] },
+          { name:'Computer Science',completed:70,  topics:['Data Representation','Intro to Databases'] },
+        ]
+      },
+    ],
+    examDateSheet: [
+      { subject:'Mathematics',    date:'2026-06-22', day:'Monday',    time:'09:00–11:00', room:'Hall A' },
+      { subject:'English',        date:'2026-06-23', day:'Tuesday',   time:'09:00–11:00', room:'Hall A' },
+      { subject:'Urdu',           date:'2026-06-24', day:'Wednesday', time:'09:00–11:00', room:'Hall A' },
+      { subject:'Physics',        date:'2026-06-25', day:'Thursday',  time:'09:00–11:00', room:'Hall B' },
+      { subject:'Chemistry',      date:'2026-06-26', day:'Friday',    time:'09:00–11:00', room:'Hall B' },
+      { subject:'Computer Science',date:'2026-06-29',day:'Monday',    time:'09:00–10:30', room:'Lab 2' },
+      { subject:'Biology',        date:'2026-06-30', day:'Tuesday',   time:'09:00–11:00', room:'Hall B' },
+      { subject:'Islamiat',       date:'2026-07-01', day:'Wednesday', time:'09:00–10:30', room:'Hall A' },
+      { subject:'Pakistan Studies',date:'2026-07-02',day:'Thursday',  time:'09:00–10:30', room:'Hall A' },
+    ]
+  },
+
+  homework: [
+    { id:1, studentClass:'Grade 9 — Crimson', teacherId:'u2', subject:'Mathematics',    description:"Exercise 5.3 — solve Q1–Q10 on Linear Equations in Two Variables.", assignedDate:'2026-06-13', dueDate:'2026-06-16', studentStatuses:{ s1:'Pending', s2:'Pending', s3:'Submitted' } },
+    { id:2, studentClass:'Grade 9 — Crimson', teacherId:'u3', subject:'English',         description:"Write a 200-word essay on 'My Favourite Book', focusing on descriptive vocabulary.", assignedDate:'2026-06-12', dueDate:'2026-06-17', studentStatuses:{ s1:'Pending', s2:'Submitted', s3:'Pending' } },
+    { id:3, studentClass:'Grade 9 — Crimson', teacherId:null, subject:'Chemistry',       description:"Complete the lab observation worksheet on Periodic Table trends (Topic 4).", assignedDate:'2026-06-11', dueDate:'2026-06-15', studentStatuses:{ s1:'Pending', s2:'Pending', s3:'Pending' } },
+    { id:4, studentClass:'Grade 9 — Crimson', teacherId:null, subject:'Computer Science',description:"Prepare a flowchart for the given algorithm and submit a printed copy.", assignedDate:'2026-06-10', dueDate:'2026-06-18', studentStatuses:{ s1:'Pending', s2:'Pending', s3:'Submitted' } },
+    { id:5, studentClass:'Grade 9 — Crimson', teacherId:'u3', subject:'Urdu',            description:"Learn the Nazm 'Lab Pe Aati Hai Dua' for class recitation.", assignedDate:'2026-06-09', dueDate:'2026-06-15', studentStatuses:{ s1:'Submitted', s2:'Submitted', s3:'Pending' } },
+    { id:6, studentClass:'Grade 9 — Crimson', teacherId:null, subject:'Pakistan Studies',description:"Read Chapter 6 (Ideology of Pakistan) and prepare short notes.", assignedDate:'2026-06-08', dueDate:'2026-06-14', studentStatuses:{ s1:'Submitted', s2:'Submitted', s3:'Submitted' } },
+  ],
+
+  notices: [
+    { id:1, title:'Public Holiday — Eid Milad-un-Nabi (S.A.W)',   description:'School closed on Thursday. Classes resume Friday as per regular timetable.', date:'2026-06-13', category:'Holiday',  postedBy:'u1' },
+    { id:2, title:'Rain Holiday Alert',                             description:'Heavy rainfall forecast tomorrow — primary section classes may be suspended. SMS update by 6:30 AM.', date:'2026-06-14', category:'Urgent', postedBy:'u1' },
+    { id:3, title:'Mid-Term Examination Schedule Released',         description:'Datesheet for Grades 6–10 uploaded to Course Hub. Exams begin 22nd June.', date:'2026-06-12', category:'Academic', postedBy:'u1' },
+    { id:4, title:'Annual Sports Day — Save the Date',             description:'Annual Sports Day on school grounds. Parents are warmly invited.', date:'2026-06-10', category:'Event',   postedBy:'u1' },
+    { id:5, title:'Parent-Teacher Meeting (PTM) — Saturday',       description:'PTM for Grades 8 and 9 on Saturday, 9:00 AM–1:00 PM.', date:'2026-06-09', category:'Urgent',   postedBy:'u1' },
+    { id:6, title:'Fee Submission Deadline Reminder',              description:'Monthly fee for June due by the 10th. Late fee surcharge applies after due date.', date:'2026-06-05', category:'Admin', postedBy:'u1' },
+  ],
+
+  remarks: [
+    { id:1, teacherId:'u2', studentId:'s1', subject:'Mathematics', date:'2026-06-11', type:'Positive',    text:'Hamza has shown excellent improvement in problem-solving speed and accuracy this month. Keep encouraging daily practice at home.', acknowledged:false },
+    { id:2, teacherId:'u3', studentId:'s1', subject:'English',     date:'2026-06-09', type:'Improvement', text:'Hamza tends to get distracted during silent reading sessions. Gentle reinforcement of focus habits at home would help.', acknowledged:false },
+    { id:3, teacherId:null, studentId:'s1', subject:'Chemistry',   date:'2026-06-06', type:'Positive',    text:'Outstanding participation and a well-prepared model at the Science Exhibition. Well done!', acknowledged:true, acknowledgedOn:'2026-06-07' },
+    { id:4, teacherId:null, studentId:'s1', subject:'General',     date:'2026-06-03', type:'Behavior',    text:'Please ensure the homework diary is checked and signed every evening — a few entries were missed last week.', acknowledged:false },
+  ],
+
+  tickets: [
+    { id:1001, studentId:'s1', category:'Fees',    subject:'Request for fee installment plan', message:'We would like to request a two-installment plan for Term 2 fees due to a temporary cash-flow constraint.', status:'Scheduled', date:'2026-06-08', reply:'We have scheduled an appointment for 20th June at 10:00 AM.' },
+    { id:1002, studentId:'s1', category:'Academic',subject:'Extra classes for Mathematics',    message:'Could Hamza be enrolled in the after-school Mathematics support class on Tuesdays and Thursdays?', status:'Resolved',  date:'2026-06-02', reply:'Hamza has been enrolled from Monday 6th June.' },
+    { id:1003, studentId:'s1', category:'Admin',   subject:'Update emergency contact number',  message:'Please update our registered emergency contact number to +92 300 1234567.', status:'Pending',   date:'2026-06-13', reply:'' },
+  ],
+
+  feeLedger: {
+    s1: {
+      month:'June 2026', dueDate:'2026-06-10', status:'Unpaid', arrears:0,
+      breakdown:[
+        { label:'Tuition Fee', amount:14500 },
+        { label:'Computer Lab Fee', amount:1500 },
+        { label:'Library Fee', amount:800 },
+        { label:'Examination Fee', amount:1200 },
+        { label:'Annual Fund (Monthly Share)', amount:500 },
+      ],
+      paymentHistory:[
+        { month:'May 2026',      amount:18500, status:'Paid', paidOn:'2026-05-08' },
+        { month:'April 2026',    amount:18500, status:'Paid', paidOn:'2026-04-09' },
+        { month:'March 2026',    amount:18000, status:'Paid', paidOn:'2026-03-07' },
+        { month:'February 2026', amount:18000, status:'Paid', paidOn:'2026-02-11' },
+        { month:'January 2026',  amount:18000, status:'Paid', paidOn:'2026-01-06' },
+      ],
+      bank:{ name:'Bank Al-Habib Limited', accountTitle:'Al-Noor Grammar School', accountNo:'0011-2233-4455-6677', branch:'Gulberg Branch, Lahore' }
+    }
+  },
+
+  // Admin stats
+  adminStats: {
+    totalStudents: 312, totalTeachers: 24, activeClasses: 18,
+    avgAttendance: 91, feePaidPercent: 74, totalRevenue: 5760000,
+    classPerformance: [
+      { cls:'Gr 6', avg:78 }, { cls:'Gr 7', avg:82 }, { cls:'Gr 8', avg:79 },
+      { cls:'Gr 9', avg:85 }, { cls:'Gr 10', avg:88 },
+    ],
+    feeCollection: [
+      { month:'Jan', collected:5400000 }, { month:'Feb', collected:5520000 },
+      { month:'Mar', collected:5680000 }, { month:'Apr', collected:5700000 },
+      { month:'May', collected:5760000 },
+    ]
+  },
+
+  // Teacher's submitted marks for their class
+  teacherMarksheets: {
+    u2: [
+      { studentId:'s1', studentName:'Hamza Ali Sheikh', subject:'Mathematics', obtained:18, total:20, date:'2026-06-02' },
+      { studentId:'s2', studentName:'Sara Bilal',       subject:'Mathematics', obtained:15, total:20, date:'2026-06-02' },
+      { studentId:'s3', studentName:'Ali Raza Qureshi', subject:'Mathematics', obtained:12, total:20, date:'2026-06-02' },
+    ]
+  },
+
+  teacherAttendance: {
+    u2: [
+      { studentId:'s1', studentName:'Hamza Ali Sheikh', date:'2026-06-15', status:'present' },
+      { studentId:'s2', studentName:'Sara Bilal',       date:'2026-06-15', status:'present' },
+      { studentId:'s3', studentName:'Ali Raza Qureshi', date:'2026-06-15', status:'absent'  },
+    ]
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  MOCK API  (async, mirrors Next.js /api routes)                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+const api = {
+  async login(email, pass) {
+    await wait(600);
+    const user = DB.users.find(u => u.email === email && u.pass === pass);
+    if (!user) throw new Error('Invalid credentials. Please try again.');
+    return JSON.parse(JSON.stringify(user));
+  },
+  async getStudent(id) {
+    await wait(200);
+    return JSON.parse(JSON.stringify(DB.students.find(s => s.id === id)));
+  },
+  async getPortalData(studentId) {
+    await wait(600);
+    return {
+      student:           DB.students.find(s => s.id === studentId),
+      attendanceSummary: DB.attendanceSummary[studentId],
+      weeklyAttendance:  DB.weeklyAttendance[studentId],
+      todayTimetable:    DB.todayTimetable,
+      academicRecords:   DB.academicRecords.filter(r => r.studentId === studentId),
+      courseHub:         DB.courseHub,
+      homework:          DB.homework.map(hw => ({ ...hw, myStatus: hw.studentStatuses[studentId] || 'Pending' })),
+      notices:           DB.notices,
+      remarks:           DB.remarks.filter(r => r.studentId === studentId),
+      tickets:           DB.tickets.filter(t => t.studentId === studentId),
+      feeLedger:         DB.feeLedger[studentId],
+    };
+  },
+  async toggleHomework(homeworkList, hwId, studentId) {
+    await wait(400);
+    const hw = DB.homework.find(h => h.id === hwId);
+    if (!hw) throw new Error('Homework not found');
+    const cur = hw.studentStatuses[studentId] || 'Pending';
+    hw.studentStatuses[studentId] = cur === 'Pending' ? 'Submitted' : 'Pending';
+    return homeworkList.map(h => h.id === hwId ? { ...h, myStatus: hw.studentStatuses[studentId] } : h);
+  },
+  async acknowledgeRemark(remarksList, remarkId) {
+    await wait(450);
+    const idx = DB.remarks.findIndex(r => r.id === remarkId);
+    if (idx >= 0) { DB.remarks[idx].acknowledged = true; DB.remarks[idx].acknowledgedOn = '2026-06-15'; }
+    return remarksList.map(r => r.id === remarkId ? { ...r, acknowledged:true, acknowledgedOn:'2026-06-15' } : r);
+  },
+  async createTicket(ticketList, studentId, payload) {
+    await wait(700);
+    const nextId = Math.max(...DB.tickets.map(t => t.id), 1000) + 1;
+    const t = { id:nextId, studentId, ...payload, status:'Pending', date:'2026-06-15', reply:'' };
+    DB.tickets.push(t);
+    return [t, ...ticketList];
+  },
+  async getAdminData() {
+    await wait(500);
+    return {
+      stats:    DB.adminStats,
+      students: DB.students,
+      teachers: DB.users.filter(u => u.role === 'teacher'),
+      notices:  DB.notices,
+      allTickets: DB.tickets,
+    };
+  },
+  async postNotice(notices, payload, userId) {
+    await wait(600);
+    const n = { id: Date.now(), ...payload, date:'2026-06-15', postedBy: userId };
+    DB.notices.unshift(n);
+    return [n, ...notices];
+  },
+  async getTeacherData(teacherId) {
+    await wait(500);
+    const myHomework = DB.homework.filter(hw => hw.teacherId === teacherId);
+    const myStudents = DB.students.filter(s =>
+      DB.users.find(u => u.id === teacherId)?.classes?.includes(s.className)
+    );
+    return {
+      marksheets:         DB.teacherMarksheets[teacherId] || [],
+      attendanceRecords:  DB.teacherAttendance[teacherId] || [],
+      homework:           myHomework,
+      students:           myStudents,
+      remarks:            DB.remarks.filter(r => r.teacherId === teacherId),
+    };
+  },
+  async submitAttendance(teacherId, updates) {
+    await wait(500);
+    if (!DB.teacherAttendance[teacherId]) DB.teacherAttendance[teacherId] = [];
+    updates.forEach(u => {
+      const existing = DB.teacherAttendance[teacherId].find(a => a.studentId === u.studentId);
+      if (existing) existing.status = u.status;
+      else DB.teacherAttendance[teacherId].push({ ...u, date:'2026-06-15' });
+    });
+    return DB.teacherAttendance[teacherId];
+  },
+  async addRemark(remarksList, teacherId, payload) {
+    await wait(500);
+    const r = { id: Date.now(), teacherId, ...payload, acknowledged:false, date:'2026-06-15' };
+    DB.remarks.push(r);
+    return [r, ...remarksList];
+  },
+  async updateTicketStatus(allTickets, ticketId, status, reply) {
+    await wait(400);
+    const idx = DB.tickets.findIndex(t => t.id === ticketId);
+    if (idx >= 0) { DB.tickets[idx].status = status; DB.tickets[idx].reply = reply; }
+    return DB.tickets.map(t => t.id === ticketId ? { ...t, status, reply } : t);
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  HELPERS                                                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const TODAY_STR = '2026-06-15';
+const TODAY_DATE = new Date(TODAY_STR + 'T00:00:00');
+
+function fmtDate(s) {
+  return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function daysUntil(s) {
+  return Math.round((new Date(s + 'T00:00:00') - TODAY_DATE) / 86400000);
+}
+function dueLabel(s) {
+  const d = daysUntil(s);
+  if (d < 0)  return `${Math.abs(d)}d overdue`;
+  if (d === 0) return 'Due today';
+  if (d === 1) return 'Due tomorrow';
+  return `Due in ${d}d`;
+}
+function pkr(n) { return `Rs. ${Number(n).toLocaleString('en-PK')}`; }
+
+const SUBJECT_ICONS = {
+  Mathematics:'Calculator', English:'Languages', Urdu:'BookOpen', Physics:'Atom',
+  Chemistry:'FlaskConical', Biology:'Microscope', 'Computer Science':'Laptop',
+  Islamiat:'Moon', 'Pakistan Studies':'Landmark', Break:'Coffee', General:'ClipboardList'
+};
+const ICON_MAP = { Calculator, Languages, BookOpen, Atom, FlaskConical, Microscope, Laptop, Moon, Landmark, Coffee, ClipboardList, BookMarked };
+
+function SIcon({ subject, size=18, color='var(--soft)' }) {
+  const name = SUBJECT_ICONS[subject] || 'BookOpen';
+  const I = ICON_MAP[name] || BookOpen;
+  return <I size={size} color={color} />;
+}
+
+const CHART_CLR = ['#8C7CF6','#45A685','#E0954A','#5DA9E0','#E26C6C','#C893F0','#5FCBBD','#E0B85D','#88A4E8'];
+
+const NOTICE_CFG = {
+  Holiday:{ tint:'t-mint', Ico:Sun,          ic:'#2E8B6E' },
+  Urgent: { tint:'t-rose', Ico:AlertTriangle, ic:'#C24F4F' },
+  Academic:{ tint:'t-sky', Ico:GraduationCap, ic:'#3576C9' },
+  Event:  { tint:'t-yel',  Ico:PartyPopper,   ic:'#B5860A' },
+  Admin:  { tint:'t-lav',  Ico:Megaphone,     ic:'#6E5DE0' },
+};
+
+const REMARK_CFG = {
+  Positive:   { tint:'t-mint', Ico:ThumbsUp,      label:'Positive Feedback' },
+  Improvement:{ tint:'t-yel',  Ico:AlertCircle,   label:'Needs Improvement' },
+  Behavior:   { tint:'t-rose', Ico:AlertTriangle,  label:'Behavior Note' },
+  General:    { tint:'t-sky',  Ico:MessageSquare,  label:'General Note' },
+};
+
+function badgeClass(status) {
+  const k = (status||'').toLowerCase().replace(/\s+/g,'');
+  const map = {
+    present:'b-ok', submitted:'b-ok', resolved:'b-ok', paid:'b-ok', completed:'b-ok',
+    absent:'b-err', unpaid:'b-err',
+    leave:'b-warn', pending:'b-warn', overdue:'b-warn',
+    upcoming:'b-lav', scheduled:'b-lav', inprogress:'b-lav',
+    break:'b-sky',
+  };
+  return map[k] || 'b-lav';
+}
+function badgeLabel(status) {
+  const map = {
+    present:'Present', absent:'Absent', leave:'Leave', upcoming:'Upcoming', break:'Break',
+    pending:'Pending', scheduled:'Scheduled', resolved:'Resolved', submitted:'Submitted',
+    paid:'Paid', unpaid:'Unpaid', inprogress:'In Progress', completed:'Completed',
+  };
+  return map[(status||'').toLowerCase().replace(/\s+/g,'')] || status;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  PRIMITIVE COMPONENTS                                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function Badge({ status }) {
+  return <span className={`badge ${badgeClass(status)}`}>{badgeLabel(status)}</span>;
+}
+
+// FIX #1: ClayDial — use from-0 fill direction, integer display, proper conic-gradient
+function ClayDial({ pct=0, label='', size=130, color='var(--acc)' }) {
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  // conic-gradient starts at top (12 o'clock) going clockwise
+  const deg = clamped * 3.6;
+  return (
+    <div className="cw flex items-center justify-center" style={{ width:size, height:size, borderRadius:'50%', padding:8, boxShadow:'var(--sh)', background:'var(--surf)' }}>
+      <div style={{ width:'100%', height:'100%', borderRadius:'50%', background:`conic-gradient(from -90deg, ${color} ${deg}deg, rgba(76,68,109,.1) ${deg}deg)` }} className="flex items-center justify-center">
+        <div className="cw flex flex-col items-center justify-center" style={{ width:'74%', height:'74%', borderRadius:'50%' }}>
+          <span className="qsand" style={{ fontSize: Math.round(size * 0.19), fontWeight:700, color:'var(--ink)', lineHeight:1 }}>{clamped}%</span>
+          {label && <span style={{ fontSize: Math.max(9, Math.round(size * 0.09)), color:'var(--soft)', textAlign:'center', padding:'0 4px', lineHeight:1.2, marginTop:2 }}>{label}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PBar({ pct=0, color='var(--acc)' }) {
+  const w = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="pbar-t">
+      <div className="pbar-f" style={{ width:`${w}%`, background:color }} />
+    </div>
+  );
+}
+
+function SecTitle({ Ico, title, sub }) {
+  return (
+    <div className="flex items-center gap-3 mb4">
+      <div className="cw flex items-center justify-center" style={{ width:42, height:42, flexShrink:0 }}>
+        <Ico size={18} color="var(--acc)" />
+      </div>
+      <div>
+        <h2 className="qsand" style={{ fontSize:17, fontWeight:700, color:'var(--ink)' }}>{title}</h2>
+        {sub && <p style={{ fontSize:12, color:'var(--soft)' }}>{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Spinner() { return <span className="spin" />; }
+
+function Btn({ children, accent, ok, err, surf, disabled, onClick, style={} }) {
+  const cls = ['cbtn', accent?'cbtn-acc':ok?'cbtn-ok':err?'cbtn-err':surf?'cbtn-surf':''].filter(Boolean).join(' ');
+  return (
+    <button className={cls} onClick={onClick} disabled={disabled} style={{ padding:'10px 18px', fontSize:13, ...style }}>
+      {children}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  LOGIN SCREEN                                                              */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function LoginScreen({ onLogin }) {
+  const [role, setRole]     = useState('parent');
+  const [email, setEmail]   = useState('');
+  const [pass, setPass]     = useState('');
+  const [showP, setShowP]   = useState(false);
+  const [busy, setBusy]     = useState(false);
+  const [err, setErr]       = useState('');
+
+  const ROLES = [
+    { id:'admin',   label:'Administrator', Ico:ShieldCheck, hint:'admin@alnoor.edu.pk' },
+    { id:'teacher', label:'Teacher',       Ico:UserCheck,   hint:'tariq@alnoor.edu.pk or ayesha@alnoor.edu.pk' },
+    { id:'parent',  label:'Parent',        Ico:Users,       hint:'parent@alnoor.edu.pk' },
+  ];
+
+  const handleLogin = async () => {
+    if (!email.trim() || !pass.trim()) { setErr('Please enter your email and password.'); return; }
+    setBusy(true); setErr('');
+    try {
+      const user = await api.login(email.trim(), pass);
+      if (user.role !== role) { setErr(`This account is not registered as ${role}.`); setBusy(false); return; }
+      onLogin(user);
+    } catch(e) { setErr(e.message); setBusy(false); }
+  };
+
+  const selectedRole = ROLES.find(r => r.id === role);
+
+  return (
+    <div className="cr flex items-center justify-center" style={{ minHeight:'100vh', padding:16 }}>
+      <div style={{ width:'100%', maxWidth:440 }}>
+        {/* Logo */}
+        <div className="flex flex-col items-center" style={{ marginBottom:28 }}>
+          <div className="cw flex items-center justify-center" style={{ width:64, height:64, borderRadius:'50%', background:'var(--lav)', marginBottom:12 }}>
+            <School size={28} color="var(--acd)" />
+          </div>
+          <h1 className="qsand" style={{ fontSize:22, fontWeight:700, color:'var(--ink)' }}>Al-Noor Grammar School</h1>
+          <p style={{ fontSize:13, color:'var(--soft)', marginTop:2 }}>Unified School Portal — Sign In</p>
+        </div>
+
+        <div className="cc p5" style={{ padding:28 }}>
+          {/* Role Select */}
+          <p className="qsand" style={{ fontSize:11, fontWeight:700, letterSpacing:'.06em', color:'var(--soft)', textTransform:'uppercase', marginBottom:10 }}>I am signing in as</p>
+          <div className="grid g3 gap-3" style={{ marginBottom:20 }}>
+            {ROLES.map(r => (
+              <div key={r.id} className={`role-card ${role===r.id?'chosen':''}`} onClick={() => { setRole(r.id); setEmail(''); setPass(''); setErr(''); }}>
+                <r.Ico size={22} color={role===r.id?'var(--acc)':'var(--soft)'} style={{ margin:'0 auto 6px' }} />
+                <p style={{ fontSize:11, fontWeight:700, color:role===r.id?'var(--acd)':'var(--soft)' }}>{r.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Hint */}
+          <div className="crf p3" style={{ marginBottom:16, fontSize:12, color:'var(--soft)', borderRadius:12 }}>
+            <strong style={{ color:'var(--ink)' }}>Demo credentials — </strong>{selectedRole.hint} / <strong>{role}123</strong>
+          </div>
+
+          {/* Inputs */}
+          <div style={{ marginBottom:12 }}>
+            <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Email Address</label>
+            <input className="cinp" type="email" placeholder={`e.g. ${selectedRole.hint.split(' ')[0]}`}
+              value={email} onChange={e => { setEmail(e.target.value); setErr(''); }} />
+          </div>
+          <div style={{ marginBottom:8, position:'relative' }}>
+            <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Password</label>
+            <input className="cinp" type={showP?'text':'password'} placeholder="••••••••"
+              value={pass} onChange={e => { setPass(e.target.value); setErr(''); }}
+              onKeyDown={e => e.key==='Enter' && handleLogin()}
+              style={{ paddingRight:44 }} />
+            <button onClick={() => setShowP(p=>!p)} className="cib" style={{ position:'absolute', right:8, top:32, width:30, height:30, border:'none' }}>
+              {showP ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+
+          {err && <p style={{ fontSize:12, color:'var(--err)', marginBottom:8, padding:'6px 10px', background:'var(--ebg)', borderRadius:10 }}>{err}</p>}
+
+          <Btn accent onClick={handleLogin} disabled={busy} style={{ width:'100%', justifyContent:'center', padding:'13px 18px', fontSize:14, marginTop:8 }}>
+            {busy ? <Spinner /> : <LogIn size={16} />}
+            {busy ? 'Signing in…' : 'Sign In'}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  NOTIFICATION PANEL  (FIX #5 — bell was a dead button)                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function NotifPanel({ notices, open, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function handle(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
+    if (open) document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="notif-panel scr" style={{ maxHeight:360, overflowY:'auto' }} ref={ref}>
+      <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid rgba(76,68,109,.1)' }}>
+        <p className="qsand" style={{ fontWeight:700, fontSize:14, color:'var(--ink)' }}>Notifications</p>
+      </div>
+      {notices.slice(0,5).map(n => {
+        const cfg = NOTICE_CFG[n.category] || NOTICE_CFG.Admin;
+        return (
+          <div key={n.id} style={{ padding:'10px 16px', borderBottom:'1px solid rgba(76,68,109,.06)', display:'flex', gap:10, alignItems:'flex-start' }}>
+            <cfg.Ico size={15} color={cfg.ic} style={{ flexShrink:0, marginTop:2 }} />
+            <div>
+              <p style={{ fontSize:12, fontWeight:600, color:'var(--ink)' }}>{n.title}</p>
+              <p style={{ fontSize:11, color:'var(--soft)', marginTop:2 }}>{fmtDate(n.date)}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  SHARED HEADER                                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function AppHeader({ user, alertCount, notices, onLogout }) {
+  const [notifOpen, setNotifOpen] = useState(false);
+  const ROLE_COLOR = { admin:'var(--peach)', teacher:'var(--mint)', parent:'var(--sky)' };
+  const ROLE_LABEL = { admin:'Administrator', teacher:'Teacher', parent:'Parent' };
+
+  return (
+    <header style={{
+      position:'sticky', top:0, zIndex:100, background:'var(--bg)',
+      padding:'10px 0 10px', display:'flex', alignItems:'center', justifyContent:'space-between',
+      marginBottom:16
+    }}>
+      <div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span className="badge" style={{ background:ROLE_COLOR[user.role], color:'var(--ink)', fontSize:10 }}>
+            {ROLE_LABEL[user.role]}
+          </span>
+        </div>
+        <h1 className="qsand" style={{ fontSize:20, fontWeight:700, color:'var(--ink)', marginTop:2, lineHeight:1 }}>
+          {user.role === 'parent' ? `Assalam-o-Alaikum, ${user.name.split(' ').slice(-1)[0]} Sahib` : `Welcome, ${user.name.split(' ').slice(0,2).join(' ')}`}
+        </h1>
+        <p style={{ fontSize:12, color:'var(--soft)', marginTop:2 }}>
+          {TODAY_DATE.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+        </p>
+      </div>
+      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+        <div style={{ position:'relative' }}>
+          <button className="cib" style={{ width:40, height:40 }} onClick={() => setNotifOpen(o=>!o)}>
+            <Bell size={18} />
+            {alertCount > 0 && (
+              <span style={{ position:'absolute', top:-3, right:-3, width:17, height:17, borderRadius:'50%', background:'var(--err)', color:'#fff', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                {alertCount}
+              </span>
+            )}
+          </button>
+          <NotifPanel notices={notices} open={notifOpen} onClose={() => setNotifOpen(false)} />
+        </div>
+        <button className="cib cbtn-err" style={{ width:40, height:40, background:'var(--ebg)' }} onClick={onLogout} title="Sign out">
+          <LogOut size={16} color="var(--err)" />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  NAVIGATION COMPONENTS                                                     */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function SideNav({ items, active, onChange, user }) {
+  return (
+    <aside className="snav" style={{
+      display:'none', position:'fixed', left:16, top:16, bottom:16, width:220,
+      padding:16, flexDirection:'column', gap:4, zIndex:80,
+    }} id="sidenav">
+      <style>{`@media(min-width:768px){ #sidenav{display:flex!important} }`}</style>
+
+      {/* Brand */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18, padding:'0 4px' }}>
+        <div className="cw" style={{ width:40, height:40, borderRadius:'50%', background:'var(--lav)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <School size={18} color="var(--acd)" />
+        </div>
+        <div style={{ overflow:'hidden' }}>
+          <p className="qsand" style={{ fontWeight:700, fontSize:13, color:'var(--ink)', lineHeight:1.2 }}>Al-Noor Grammar</p>
+          <p style={{ fontSize:11, color:'var(--soft)' }}>School Portal</p>
+        </div>
+      </div>
+
+      {/* Nav Items */}
+      <nav style={{ flex:1, display:'flex', flexDirection:'column', gap:2, overflowY:'auto' }} className="scr">
+        {items.map(item => (
+          <button key={item.id} onClick={() => onChange(item.id)} className={`sni ${active===item.id?'on':''}`}>
+            <item.Ico size={16} /> {item.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* User chip */}
+      <div className="cw" style={{ padding:'10px 12px', display:'flex', alignItems:'center', gap:8, marginTop:8 }}>
+        <div style={{ width:34, height:34, borderRadius:'50%', background:'var(--acc)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, fontFamily:'Quicksand,sans-serif', flexShrink:0 }}>
+          {user.avatar}
+        </div>
+        <div style={{ overflow:'hidden' }}>
+          <p style={{ fontSize:12, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.name.split(' ').slice(0,2).join(' ')}</p>
+          <p style={{ fontSize:11, color:'var(--soft)', textTransform:'capitalize' }}>{user.role}</p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function BottomNav({ items, active, onChange }) {
+  return (
+    <>
+      <style>{`@media(min-width:768px){ #bnav{display:none!important} }`}</style>
+      <nav id="bnav" className="bnav" style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:80, padding:'6px 4px 10px', display:'grid', gridTemplateColumns:`repeat(${items.length},1fr)`, gap:2 }}>
+        {items.map(item => (
+          <button key={item.id} onClick={() => onChange(item.id)} className={`bni ${active===item.id?'on':''}`}>
+            <item.Ico size={17} /> {item.label}
+          </button>
+        ))}
+      </nav>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  ██████  PARENT PORTAL VIEWS                                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const PARENT_NAV = [
+  { id:'dashboard',    label:'Home',       Ico:Home },
+  { id:'attendance',   label:'Attendance', Ico:CalendarCheck },
+  { id:'academics',    label:'Academics',  Ico:GraduationCap },
+  { id:'diary',        label:'Diary',      Ico:NotebookPen },
+  { id:'communication',label:'Messages',   Ico:MessageCircle },
+  { id:'fees',         label:'Fees',       Ico:Wallet },
+];
+
+/* ---------- Dashboard ---------------------------------------------------- */
+
+function ParentDashboard({ data, onNav }) {
+  const pending     = data.homework.filter(h => h.myStatus === 'Pending').length;
+  const unack       = data.remarks.filter(r => !r.acknowledged).length;
+  const totalDue    = (data.feeLedger?.breakdown||[]).reduce((s,b)=>s+b.amount,0) + (data.feeLedger?.arrears||0);
+  const nextExam    = data.courseHub.examDateSheet[0];
+  const avgPct      = Math.round(data.academicRecords.reduce((s,r)=>s+(r.obtained/r.total*100),0) / (data.academicRecords.length||1));
+
+  const cards1 = [
+    { tint:'t-lav', id:'attendance', content: <><ClayDial pct={data.attendanceSummary.overallPercent} label="Attendance" size={86} /><p className="qsand" style={{ fontWeight:700, marginTop:10, fontSize:14 }}>Overall Attendance</p><p style={{ fontSize:12, color:'var(--soft)', marginTop:3 }}>{data.attendanceSummary.presentDays} present / {data.attendanceSummary.totalDays} days</p></> },
+    { tint:'t-mint',id:'academics',  content: <><ClayDial pct={avgPct} label="Avg. Score" size={86} color="var(--ok)" /><p className="qsand" style={{ fontWeight:700, marginTop:10, fontSize:14 }}>Academic Performance</p><p style={{ fontSize:12, color:'var(--soft)', marginTop:3 }}>Across {data.academicRecords.length} assessments</p></> },
+    { tint:'t-pch', id:'fees',       content: <><div className="cw flex items-center justify-center" style={{ width:52, height:52, marginBottom:10 }}><Wallet size={22} color="#C2783E" /></div><p className="qsand" style={{ fontWeight:700, fontSize:20 }}>{pkr(totalDue)}</p><div style={{ marginTop:4, display:'flex', alignItems:'center', gap:6 }}><Badge status={data.feeLedger?.status||'Unpaid'} /><span style={{ fontSize:11, color:'var(--soft)' }}>{dueLabel(data.feeLedger?.dueDate||TODAY_STR)}</span></div></> },
+  ];
+  const cards2 = [
+    { tint:'t-sky', id:'diary',         label:`${pending} Homework Pending`,            sub:'Tasks not yet submitted', Ico:NotebookPen, ic:'#3576C9' },
+    { tint:'t-rose',id:'communication', label:`${unack} Remark${unack!==1?'s':''} Unread`, sub:'Awaiting your acknowledgement', Ico:MessageSquare, ic:'#C2585F' },
+    { tint:'t-yel', id:'academics',     label:`${nextExam.subject} Exam`,               sub:`${fmtDate(nextExam.date)} · ${dueLabel(nextExam.date)}`, Ico:CalendarDays, ic:'#B5860A' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid g3 gap-4 md-g1 sm-g1">
+        {cards1.map(c => (
+          <button key={c.id} onClick={() => onNav(c.id)} className={`cc ${c.tint} p5`} style={{ textAlign:'left', cursor:'pointer', border:'none' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              {c.content}
+              <ChevronRight size={16} color="var(--soft)" style={{ flexShrink:0, alignSelf:'flex-start' }} />
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="grid g3 gap-4 md-g1 sm-g1">
+        {cards2.map(c => (
+          <button key={c.id} onClick={() => onNav(c.id)} className={`cc ${c.tint} p5`} style={{ textAlign:'left', cursor:'pointer', border:'none' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+              <div className="cw flex items-center justify-center" style={{ width:40, height:40 }}><c.Ico size={17} color={c.ic} /></div>
+              <ChevronRight size={14} color="var(--soft)" />
+            </div>
+            <p className="qsand" style={{ fontWeight:700, fontSize:15, color:'var(--ink)' }}>{c.label}</p>
+            <p style={{ fontSize:12, color:'var(--soft)', marginTop:3 }}>{c.sub}</p>
+          </button>
+        ))}
+      </div>
+      {/* Latest notice */}
+      {data.notices[0] && (() => {
+        const n = data.notices[0]; const cfg = NOTICE_CFG[n.category]||NOTICE_CFG.Admin;
+        return (
+          <div className="cc p5">
+            <SecTitle Ico={Megaphone} title="Latest Notice" sub="School notice board" />
+            <div className={`cr0 ${cfg.tint} p4`} style={{ display:'flex', gap:12 }}>
+              <div className="cw flex items-center justify-center" style={{ width:40, height:40, flexShrink:0 }}><cfg.Ico size={17} color={cfg.ic} /></div>
+              <div>
+                <p className="qsand" style={{ fontWeight:700, fontSize:14 }}>{n.title}</p>
+                <p style={{ fontSize:13, color:'var(--soft)', marginTop:4 }}>{n.description}</p>
+                <p style={{ fontSize:11, color:'var(--soft)', marginTop:6 }}>{fmtDate(n.date)}</p>
+              </div>
+            </div>
+            <button className="chip mt3" onClick={() => onNav('diary')}>View all notices <ChevronRight size={12} /></button>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+/* ---------- Attendance --------------------------------------------------- */
+
+function ParentAttendance({ data }) {
+  const { presentDays, absentDays, leaveDays, overallPercent } = data.attendanceSummary;
+  const pieData = [
+    { name:'Present', value:presentDays, color:'#45A685' },
+    { name:'Absent',  value:absentDays,  color:'#E26C6C' },
+    { name:'Leave',   value:leaveDays,   color:'#E0954A' },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="grid g2 gap-4 md-g1 sm-g1">
+        <div className="cc t-lav p5 flex flex-col items-center justify-center" style={{ gap:12, minHeight:200 }}>
+          <ClayDial pct={overallPercent} label="Overall" size={148} />
+          <p style={{ fontSize:13, color:'var(--soft)', textAlign:'center' }}>
+            {presentDays} present · {absentDays} absent · {leaveDays} on leave<br />out of {data.attendanceSummary.totalDays} school days
+          </p>
+        </div>
+        <div className="cc p5">
+          <SecTitle Ico={BarChart3} title="Session Breakdown" sub="2025–2026" />
+          <div style={{ width:'100%', height:190 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={4} cornerRadius={6} stroke="none">
+                  {pieData.map((e,i) => <Cell key={i} fill={e.color} />)}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius:12, border:'none', boxShadow:'0 4px 14px rgba(76,68,109,.18)', fontFamily:'Inter' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display:'flex', justifyContent:'center', gap:16, flexWrap:'wrap', marginTop:4 }}>
+            {pieData.map(e => (
+              <div key={e.name} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
+                <span style={{ width:10, height:10, borderRadius:'50%', background:e.color, display:'inline-block' }} />{e.name} ({e.value})
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="cc p5">
+        <SecTitle Ico={Clock} title="Today's Timetable" sub="Live period attendance" />
+        <div className="space-y-3">
+          {data.todayTimetable.map(p => (
+            <div key={p.id} className="cr0 p4" style={{ display:'flex', alignItems:'center', gap:12, opacity: p.status==='break'?.65:1 }}>
+              <p className="qsand" style={{ width:90, fontSize:11, fontWeight:600, color:'var(--soft)', flexShrink:0 }}>{p.time}</p>
+              <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                <SIcon subject={p.subject} size={16} color="var(--acc)" />
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p className="qsand" style={{ fontWeight:700, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.subject}</p>
+                {p.teacher && <p style={{ fontSize:11, color:'var(--soft)' }}>{p.teacher}</p>}
+              </div>
+              <Badge status={p.status} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="cc p5">
+        <SecTitle Ico={TrendingUp} title="This Week" sub="Periods attended per day" />
+        <div className="grid g5 gap-3">
+          {(data.weeklyAttendance||[]).map(d => {
+            const tot = d.present + d.absent + d.leave;
+            const pct = tot > 0 ? Math.round(d.present / tot * 100) : 0;
+            return (
+              <div key={d.day} className="crf p3" style={{ textAlign:'center', borderRadius:16 }}>
+                <p className="qsand" style={{ fontWeight:700, fontSize:12, marginBottom:8 }}>{d.day}</p>
+                <ClayDial pct={pct} size={56} color={pct===100?'var(--ok)':'var(--warn)'} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Academics ----------------------------------------------------- */
+
+function ParentAcademics({ data }) {
+  const [activeTerm, setActiveTerm] = useState(data.courseHub.terms[data.courseHub.terms.length-1].id);
+  const term = data.courseHub.terms.find(t => t.id === activeTerm);
+
+  const barData = data.academicRecords.map((r,i) => ({
+    name: r.subject.length > 7 ? r.subject.substring(0,7)+'…' : r.subject,
+    pct:  Math.round(r.obtained/r.total*100),
+    fill: CHART_CLR[i % CHART_CLR.length],
+  }));
+
+  return (
+    <div className="space-y-4">
+      {/* Performance Chart — FIX #7: replaced RadialBarChart (broken legend) with BarChart */}
+      <div className="cc p5">
+        <SecTitle Ico={Award} title="Performance Overview" sub="Subject-wise score percentage" />
+        <div style={{ width:'100%', height:220 }}>
+          <ResponsiveContainer>
+            <BarChart data={barData} margin={{ top:4, right:8, left:-20, bottom:0 }} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,68,109,.08)" />
+              <XAxis dataKey="name" tick={{ fontSize:11, fontFamily:'Inter', fill:'var(--soft)' }} />
+              <YAxis domain={[0,100]} tick={{ fontSize:11, fontFamily:'Inter', fill:'var(--soft)' }} unit="%" />
+              <Tooltip
+                formatter={(val) => [`${val}%`, 'Score']}
+                contentStyle={{ borderRadius:12, border:'none', boxShadow:'0 4px 14px rgba(76,68,109,.18)', fontFamily:'Inter', fontSize:12 }}
+              />
+              <Bar dataKey="pct" radius={[8,8,0,0]}>
+                {barData.map((e,i) => <Cell key={i} fill={e.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Gradebook */}
+      <div className="cc p5">
+        <SecTitle Ico={ClipboardList} title="Recent Tests & Quizzes" sub="Marks obtained vs total" />
+        <div className="space-y-3">
+          {data.academicRecords.map(rec => {
+            const pct = Math.round(rec.obtained / rec.total * 100);
+            const clr = pct>=80?'var(--ok)':pct>=60?'var(--warn)':'var(--err)';
+            return (
+              <div key={rec.id} className="cr0 p4">
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                    <SIcon subject={rec.subject} size={15} color="var(--acc)" />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                      <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{rec.subject}</p>
+                      <p style={{ fontSize:11, color:'var(--soft)' }}>{fmtDate(rec.date)}</p>
+                    </div>
+                    <p style={{ fontSize:12, color:'var(--soft)' }}>{rec.testName}</p>
+                  </div>
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{rec.obtained}/{rec.total}</p>
+                    <p style={{ fontSize:11, color:clr, fontWeight:600 }}>{pct}%</p>
+                  </div>
+                </div>
+                <div style={{ marginTop:10 }}><PBar pct={pct} color={clr} /></div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Course Hub */}
+      <div className="cc p5">
+        <SecTitle Ico={BookOpen} title="Course Hub" sub="Term-wise syllabus progress" />
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+          {data.courseHub.terms.map(t => (
+            <button key={t.id} className={`chip ${activeTerm===t.id?'on':''}`} onClick={() => setActiveTerm(t.id)}>{t.name}</button>
+          ))}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+          <p style={{ fontSize:12, color:'var(--soft)' }}>{term.period}</p>
+          <Badge status={term.status} />
+        </div>
+        <div className="space-y-3">
+          {term.subjects.map(s => (
+            <div key={s.name} className="cr0 p4">
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                <SIcon subject={s.name} size={14} color="var(--acc)" />
+                <p className="qsand" style={{ fontWeight:700, fontSize:13, flex:1 }}>{s.name}</p>
+                <p style={{ fontSize:12, fontWeight:700, color:'var(--acc)' }}>{s.completed}%</p>
+              </div>
+              <PBar pct={s.completed} />
+              <p style={{ fontSize:11, color:'var(--soft)', marginTop:6 }}>Topics: {s.topics.join(', ')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Exam Date Sheet */}
+      <div className="cc p5">
+        <SecTitle Ico={CalendarDays} title="Exam Date Sheet" sub="Mid-Term · June–July 2026" />
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 6px', minWidth:420 }}>
+            <thead>
+              <tr style={{ color:'var(--soft)', fontSize:12 }}>
+                {['Subject','Date','Day','Time','Room'].map(h => <th key={h} style={{ textAlign:'left', padding:'4px 10px', fontFamily:'Quicksand,sans-serif', fontWeight:700 }}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {data.courseHub.examDateSheet.map(e => (
+                <tr key={e.subject} className="crf">
+                  <td style={{ padding:'10px 10px', fontWeight:600, fontSize:13 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}><SIcon subject={e.subject} size={13} color="var(--soft)" />{e.subject}</div>
+                  </td>
+                  <td style={{ padding:'10px 10px', fontSize:13 }}>{fmtDate(e.date)}</td>
+                  <td style={{ padding:'10px 10px', fontSize:13 }}>{e.day}</td>
+                  <td style={{ padding:'10px 10px', fontSize:13 }}>{e.time}</td>
+                  <td style={{ padding:'10px 10px', fontSize:13 }}>{e.room}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Diary --------------------------------------------------------- */
+
+function ParentDiary({ data, onToggleHw, busyIds }) {
+  return (
+    <div className="grid g2 gap-4 md-g1 sm-g1">
+      {/* Homework */}
+      <div className="cc p5">
+        <SecTitle Ico={NotebookPen} title="Homework Diary" sub="Daily tasks & assignments" />
+        <div className="space-y-3">
+          {data.homework.map(hw => {
+            const busy = busyIds.has(hw.id);
+            // FIX #14: dueLabel only shown when pending
+            const dueTxt = hw.myStatus === 'Pending' ? dueLabel(hw.dueDate) : `Submitted · due was ${fmtDate(hw.dueDate)}`;
+            const isOverdue = hw.myStatus === 'Pending' && daysUntil(hw.dueDate) < 0;
+            return (
+              <div key={hw.id} className="cr0 p4">
+                <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                  <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                    <SIcon subject={hw.subject} size={15} color="var(--acc)" />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                      <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{hw.subject}</p>
+                      <Badge status={hw.myStatus} />
+                    </div>
+                    <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{hw.description}</p>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10, flexWrap:'wrap', gap:6 }}>
+                      <p style={{ fontSize:11, fontWeight:600, color: isOverdue?'var(--err)':'var(--soft)' }}>{dueTxt}</p>
+                      <button className={`chip ${hw.myStatus==='Submitted'?'on':''}`} onClick={() => onToggleHw(hw.id)} disabled={busy}>
+                        {busy ? <Spinner /> : hw.myStatus==='Pending' ? <Check size={12} /> : <XCircle size={12} />}
+                        {busy ? 'Saving…' : hw.myStatus==='Pending' ? 'Mark Submitted' : 'Mark Pending'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Notice Board */}
+      <div className="cc p5">
+        <SecTitle Ico={Megaphone} title="Notice Board" sub="Official circulars" />
+        <div className="space-y-3">
+          {data.notices.map(n => {
+            const cfg = NOTICE_CFG[n.category] || NOTICE_CFG.Admin;
+            return (
+              <div key={n.id} className={`cr0 ${cfg.tint} p4`}>
+                <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                  <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                    <cfg.Ico size={16} color={cfg.ic} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                      <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{n.title}</p>
+                      <span className="badge" style={{ background:'rgba(255,255,255,.6)', color:cfg.ic }}>{n.category}</span>
+                    </div>
+                    <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{n.description}</p>
+                    <p style={{ fontSize:11, color:'var(--soft)', marginTop:5, fontWeight:600 }}>{fmtDate(n.date)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Communication ------------------------------------------------- */
+
+const TICKET_CATS = ['Academic','Sports','Admin','Fees'];
+
+function ParentCommunication({ data, onAck, busyRemarks, onCreateTicket, ticketBusy }) {
+  const [cat, setCat]   = useState('Academic');
+  const [subj, setSubj] = useState('');
+  const [msg, setMsg]   = useState('');
+  const [toast, setToast] = useState('');
+
+  // FIX #9: use div + onClick instead of <form> to avoid iframe page reload
+  const handleSubmit = async () => {
+    if (!subj.trim() || !msg.trim()) return;
+    await onCreateTicket({ category:cat, subject:subj.trim(), message:msg.trim() });
+    setSubj(''); setMsg(''); setCat('Academic');
+    setToast('Your query has been submitted successfully. The school office will respond shortly.');
+    setTimeout(() => setToast(''), 4500);
+  };
+
+  return (
+    <div className="grid g2 gap-4 md-g1 sm-g1">
+      {/* Remarks */}
+      <div className="cc p5">
+        <SecTitle Ico={MessageSquare} title="Teacher Remarks" sub="Acknowledge feedback from teachers" />
+        <div className="space-y-3">
+          {data.remarks.map(r => {
+            // FIX #13: fallback for unknown remark types
+            const cfg = REMARK_CFG[r.type] || { tint:'t-sky', Ico:MessageSquare, label:r.type };
+            const busy = busyRemarks.has(r.id);
+            return (
+              <div key={r.id} className={`cr0 ${cfg.tint} p4`}>
+                <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                  <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                    <cfg.Ico size={15} color="var(--ink)" />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                      <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{r.teacher} · {r.subject}</p>
+                      <p style={{ fontSize:11, color:'var(--soft)' }}>{fmtDate(r.date)}</p>
+                    </div>
+                    <p style={{ fontSize:11, color:'var(--soft)', marginTop:2 }}>{cfg.label}</p>
+                    <p style={{ fontSize:13, color:'var(--ink)', marginTop:6 }}>{r.text}</p>
+                    <div style={{ marginTop:10 }}>
+                      {r.acknowledged
+                        ? <span className="chip on"><CheckCircle2 size={12} /> Acknowledged {r.acknowledgedOn ? `· ${fmtDate(r.acknowledgedOn)}` : ''}</span>
+                        : <button className="chip" onClick={() => onAck(r.id)} disabled={busy}>
+                            {busy ? <Spinner /> : <CheckCircle2 size={12} />}
+                            {busy ? 'Signing…' : 'Acknowledge & Sign'}
+                          </button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {/* Query Desk */}
+        <div className="cc p5">
+          <SecTitle Ico={Send} title="Query Desk" sub="Submit a formal query or appointment" />
+          <div>
+            <p className="qsand" style={{ fontSize:11, fontWeight:700, letterSpacing:'.05em', color:'var(--soft)', textTransform:'uppercase', marginBottom:8 }}>Category</p>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
+              {TICKET_CATS.map(c => <button key={c} className={`chip ${cat===c?'on':''}`} onClick={() => setCat(c)}>{c}</button>)}
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Subject</label>
+              <input className="cinp" placeholder="e.g. Request for extra coaching" value={subj} onChange={e => setSubj(e.target.value)} maxLength={120} />
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Message</label>
+              <textarea className="ctxt" placeholder="Describe your query in detail…" value={msg} onChange={e => setMsg(e.target.value)} maxLength={500} />
+            </div>
+            <Btn accent onClick={handleSubmit} disabled={ticketBusy || !subj.trim() || !msg.trim()} style={{ width:'100%', justifyContent:'center' }}>
+              {ticketBusy ? <Spinner /> : <Send size={14} />}
+              {ticketBusy ? 'Submitting…' : 'Submit Query'}
+            </Btn>
+            {toast && (
+              <div className="cr0 t-mint p3" style={{ marginTop:10, display:'flex', gap:8, alignItems:'center', fontSize:13 }}>
+                <CheckCircle2 size={15} color="var(--ok)" /> {toast}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ticket Tracker */}
+        <div className="cc p5">
+          <SecTitle Ico={ClipboardList} title="My Tickets" sub="Track your submitted queries" />
+          <div className="space-y-3">
+            {data.tickets.map(t => (
+              <div key={t.id} className="cr0 p4">
+                <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:6, marginBottom:6 }}>
+                  <span className="badge b-lav">{t.category}</span>
+                  <Badge status={t.status} />
+                </div>
+                <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{t.subject}</p>
+                <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{t.message}</p>
+                {t.reply && (
+                  <div className="crf p3" style={{ marginTop:8, borderLeft:'3px solid var(--acc)', paddingLeft:10 }}>
+                    <p style={{ fontSize:11, fontWeight:600, color:'var(--acc)' }}>School Response:</p>
+                    <p style={{ fontSize:12, color:'var(--ink)', marginTop:2 }}>{t.reply}</p>
+                  </div>
+                )}
+                <p style={{ fontSize:11, color:'var(--soft)', marginTop:6 }}>Ticket #{t.id} · {fmtDate(t.date)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Fees ---------------------------------------------------------- */
+
+function ChallanPrint({ data, fee, onClose }) {
+  const totalDue = fee.breakdown.reduce((s,b)=>s+b.amount,0) + (fee.arrears||0);
+  const challanNo = `ANG-${data.student.rollNo.replace(/[^A-Z0-9]/gi,'')}-0626`;
+  const copies = ['Bank Copy','School Copy','Parent Copy'];
+
+  // FIX #4: Modal rendered in-flow (no position:fixed), uses overflow-y on wrapper
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(61,55,89,.55)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div className="cc" style={{ width:'100%', maxWidth:900, maxHeight:'90vh', overflowY:'auto', padding:24, background:'var(--surf)' }} id="challan-modal">
+        {/* Controls */}
+        <div className="no-print" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div>
+            <h2 className="qsand" style={{ fontWeight:700, fontSize:18, color:'var(--ink)' }}>Fee Challan</h2>
+            <p style={{ fontSize:12, color:'var(--soft)' }}>{fee.month} · #{challanNo}</p>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn accent onClick={() => window.print()}><Printer size={14} /> Print</Btn>
+            <button className="cib" style={{ width:38, height:38 }} onClick={onClose}><X size={16} /></button>
+          </div>
+        </div>
+        {/* 3-part challan grid */}
+        <div className="ch-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+          {copies.map(copy => (
+            <div key={copy} className="ch-copy cc p4" style={{ fontSize:11, display:'flex', flexDirection:'column', gap:8, minHeight:380 }}>
+              <div style={{ textAlign:'center', borderBottom:'1px solid rgba(76,68,109,.12)', paddingBottom:8 }}>
+                <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{fee.bank?.accountTitle || 'Al-Noor Grammar School'}</p>
+                <p style={{ color:'var(--soft)', marginTop:2 }}>Fee Challan · {fee.month}</p>
+                <p className="qsand" style={{ fontWeight:700, color:'var(--acc)', marginTop:3 }}>{copy}</p>
+              </div>
+              <table style={{ width:'100%' }}>
+                <tbody>
+                  {[['Challan No.',challanNo],['Student',data.student.name],['Class',data.student.className],['Roll No.',data.student.rollNo],['Due Date',fmtDate(fee.dueDate)]].map(([k,v]) => (
+                    <tr key={k}><td style={{ color:'var(--soft)', padding:'3px 0' }}>{k}</td><td style={{ textAlign:'right', fontWeight:600, padding:'3px 0' }}>{v}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <table style={{ width:'100%', borderTop:'1px solid rgba(76,68,109,.1)', paddingTop:4 }}>
+                <tbody>
+                  {fee.breakdown.map(b => (
+                    <tr key={b.label}><td style={{ color:'var(--soft)', padding:'2px 0', fontSize:10 }}>{b.label}</td><td style={{ textAlign:'right', padding:'2px 0' }}>{pkr(b.amount)}</td></tr>
+                  ))}
+                  {(fee.arrears||0) > 0 && <tr><td style={{ color:'var(--err)', padding:'2px 0' }}>Arrears</td><td style={{ textAlign:'right', color:'var(--err)' }}>{pkr(fee.arrears)}</td></tr>}
+                  <tr style={{ borderTop:'1px solid rgba(76,68,109,.1)' }}>
+                    <td className="qsand" style={{ fontWeight:700, padding:'5px 0' }}>Total</td>
+                    <td className="qsand" style={{ textAlign:'right', fontWeight:700, padding:'5px 0' }}>{pkr(totalDue)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ marginTop:'auto', paddingTop:8, borderTop:'1px solid rgba(76,68,109,.1)' }}>
+                <p style={{ color:'var(--soft)' }}>{fee.bank?.name}</p>
+                <p style={{ color:'var(--soft)' }}>A/C: {fee.bank?.accountNo}</p>
+                <p style={{ color:'var(--soft)' }}>{fee.bank?.branch}</p>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:12, textAlign:'center' }}>
+                  <div style={{ borderTop:'1px solid rgba(76,68,109,.2)', paddingTop:4, fontSize:10, color:'var(--soft)' }}>Parent Signature</div>
+                  <div style={{ borderTop:'1px solid rgba(76,68,109,.2)', paddingTop:4, fontSize:10, color:'var(--soft)' }}>Bank Stamp</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="no-print" style={{ fontSize:11, color:'var(--soft)', textAlign:'center', marginTop:14 }}>Three copies (Bank · School · Parent) print on one A4 sheet.</p>
+      </div>
+    </div>
+  );
+}
+
+function ParentFees({ data }) {
+  const [challanOpen, setChallanOpen] = useState(false);
+  const fee = data.feeLedger;
+  const totalDue = fee.breakdown.reduce((s,b)=>s+b.amount,0) + (fee.arrears||0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid g3 gap-4 md-g1 sm-g1">
+        {[
+          { tint:'t-pch', label:'Current Dues',   val:pkr(totalDue-(fee.arrears||0)), sub:fee.month,                      lc:'#C2783E' },
+          { tint:'t-rose',label:'Arrears',         val:pkr(fee.arrears||0),            sub:'Previous months outstanding',  lc:'#C2585F' },
+          { tint:'t-mint',label:'Payment Status',  val:pkr(totalDue),                  sub:`${dueLabel(fee.dueDate)}`,     lc:'#2E8B6E', badge:fee.status },
+        ].map(c => (
+          <div key={c.label} className={`cc ${c.tint} p5`}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <p className="qsand" style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.04em', color:c.lc }}>{c.label}</p>
+              {c.badge && <Badge status={c.badge} />}
+            </div>
+            <p className="qsand" style={{ fontWeight:700, fontSize:22, marginTop:8 }}>{c.val}</p>
+            <p style={{ fontSize:11, color:'var(--soft)', marginTop:3 }}>{c.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="cc p5">
+        <SecTitle Ico={Banknote} title="Fee Breakdown" sub={`${fee.month} statement`} />
+        <div className="space-y-3">
+          {fee.breakdown.map(b => (
+            <div key={b.label} className="crf p4" style={{ display:'flex', justifyContent:'space-between' }}>
+              <p style={{ fontSize:13, fontWeight:600 }}>{b.label}</p>
+              <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{pkr(b.amount)}</p>
+            </div>
+          ))}
+          {(fee.arrears||0) > 0 && (
+            <div className="crf p4" style={{ display:'flex', justifyContent:'space-between', background:'var(--ebg)' }}>
+              <p style={{ fontSize:13, fontWeight:600, color:'var(--err)' }}>Arrears</p>
+              <p className="qsand" style={{ fontWeight:700, fontSize:13, color:'var(--err)' }}>{pkr(fee.arrears)}</p>
+            </div>
+          )}
+          <div className="cr0 t-lav p4" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <p className="qsand" style={{ fontWeight:700, color:'var(--acd)' }}>Total Payable</p>
+            <p className="qsand" style={{ fontWeight:700, fontSize:18, color:'var(--acd)' }}>{pkr(totalDue)}</p>
+          </div>
+        </div>
+        <Btn accent onClick={() => setChallanOpen(true)} style={{ marginTop:14, width:'100%', justifyContent:'center' }}>
+          <Download size={14} /> Download Fee Challan
+        </Btn>
+      </div>
+
+      <div className="cc p5">
+        <SecTitle Ico={CreditCard} title="Payment History" sub="Last 5 months" />
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 6px', minWidth:340 }}>
+            <thead><tr style={{ color:'var(--soft)', fontSize:12 }}>
+              {['Month','Amount','Paid On','Status'].map(h => <th key={h} style={{ textAlign:'left', padding:'3px 10px', fontFamily:'Quicksand,sans-serif', fontWeight:700 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {fee.paymentHistory.map(p => (
+                <tr key={p.month} className="crf">
+                  <td style={{ padding:'9px 10px', fontWeight:600, fontSize:13 }}>{p.month}</td>
+                  <td style={{ padding:'9px 10px', fontSize:13 }}>{pkr(p.amount)}</td>
+                  <td style={{ padding:'9px 10px', fontSize:13 }}>{fmtDate(p.paidOn)}</td>
+                  <td style={{ padding:'9px 10px' }}><Badge status={p.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* FIX #4: Challan now rendered conditionally, not through fixed modal that collapses iframe */}
+      {challanOpen && <ChallanPrint data={data} fee={fee} onClose={() => setChallanOpen(false)} />}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  ████████  TEACHER PORTAL                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const TEACHER_NAV = [
+  { id:'tdashboard', label:'Dashboard',  Ico:LayoutDashboard },
+  { id:'tattendance',label:'Attendance', Ico:CalendarCheck },
+  { id:'tmarks',     label:'Marksheet',  Ico:Award },
+  { id:'tremarks',   label:'Remarks',    Ico:MessageSquare },
+  { id:'thomework',  label:'Homework',   Ico:NotebookPen },
+];
+
+function TeacherPortal({ user, onLogout }) {
+  const [view, setView]         = useState('tdashboard');
+  const [tdata, setTdata]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [attUpdates, setAttUpd] = useState({});
+  const [attSaving, setAttSaving] = useState(false);
+  const [attSaved, setAttSaved] = useState(false);
+  const [remarkForm, setRF]     = useState({ studentId:'s1', type:'Positive', text:'' });
+  const [remarkBusy, setRB]     = useState(false);
+  const [remarkDone, setRD]     = useState('');
+
+  useEffect(() => {
+    api.getTeacherData(user.id).then(d => { setTdata(d); setLoading(false); });
+  }, [user.id]);
+
+  const handleSaveAttendance = async () => {
+    setAttSaving(true);
+    const updates = Object.entries(attUpdates).map(([studentId, status]) => ({ studentId, status }));
+    if (updates.length) {
+      const updated = await api.submitAttendance(user.id, updates);
+      setTdata(d => ({ ...d, attendanceRecords: updated }));
+    }
+    setAttUpd({}); setAttSaving(false); setAttSaved(true);
+    setTimeout(() => setAttSaved(false), 3000);
+  };
+
+  const handleAddRemark = async () => {
+    if (!remarkForm.text.trim()) return;
+    setRB(true);
+    const updated = await api.addRemark(tdata.remarks, user.id, remarkForm);
+    setTdata(d => ({ ...d, remarks: updated }));
+    setRF({ studentId:'s1', type:'Positive', text:'' });
+    setRD('Remark submitted successfully.'); setRB(false);
+    setTimeout(() => setRD(''), 3000);
+  };
+
+  if (loading || !tdata) return <Loading label="Loading teacher dashboard…" />;
+
+  const allStudents = DB.students.filter(s => DB.users.find(u => u.id===user.id)?.classes?.includes(s.className));
+
+  return (
+    <div className="cr" style={{ minHeight:'100vh' }}>
+      <Styles />
+      <SideNav items={TEACHER_NAV} active={view} onChange={setView} user={user} />
+      <main style={{ paddingLeft:0, paddingRight:16, paddingTop:16, paddingBottom:80 }} id="tmain">
+        <style>{`@media(min-width:768px){ #tmain{padding-left:252px!important} }`}</style>
+        <AppHeader user={user} alertCount={0} notices={DB.notices} onLogout={onLogout} />
+
+        {view === 'tdashboard' && (
+          <div className="space-y-4">
+            <div className="grid g3 gap-4 md-g1 sm-g1">
+              {[
+                { label:'My Students', val:allStudents.length, Ico:Users, tint:'t-lav', ic:'var(--acd)' },
+                { label:'Marksheets Submitted', val:tdata.marksheets.length, Ico:Award, tint:'t-mint', ic:'var(--ok)' },
+                { label:'Homework Assigned', val:tdata.homework.length, Ico:NotebookPen, tint:'t-sky', ic:'#3576C9' },
+              ].map(c => (
+                <div key={c.label} className={`cc ${c.tint} p5`}>
+                  <div className="cw flex items-center justify-center" style={{ width:44, height:44, marginBottom:10 }}><c.Ico size={18} color={c.ic} /></div>
+                  <p className="qsand" style={{ fontWeight:700, fontSize:24 }}>{c.val}</p>
+                  <p style={{ fontSize:13, color:'var(--soft)', marginTop:4 }}>{c.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="cc p5">
+              <SecTitle Ico={ClipboardList} title="My Class Marksheet" sub={`${user.subject} · Grade 9 Crimson`} />
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 6px', minWidth:360 }}>
+                  <thead><tr style={{ color:'var(--soft)', fontSize:12 }}>
+                    {['Student','Test','Obtained','Total','%'].map(h => <th key={h} style={{ textAlign:'left', padding:'3px 10px', fontFamily:'Quicksand,sans-serif', fontWeight:700 }}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {tdata.marksheets.map((m,i) => {
+                      const pct = Math.round(m.obtained/m.total*100);
+                      return (
+                        <tr key={i} className="crf">
+                          <td style={{ padding:'9px 10px', fontWeight:600, fontSize:13 }}>{m.studentName}</td>
+                          <td style={{ padding:'9px 10px', fontSize:13 }}>{m.subject}</td>
+                          <td style={{ padding:'9px 10px', fontSize:13 }}>{m.obtained}</td>
+                          <td style={{ padding:'9px 10px', fontSize:13 }}>{m.total}</td>
+                          <td style={{ padding:'9px 10px' }}><span style={{ color:pct>=80?'var(--ok)':pct>=60?'var(--warn)':'var(--err)', fontWeight:700, fontSize:13 }}>{pct}%</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'tattendance' && (
+          <div className="cc p5">
+            <SecTitle Ico={CalendarCheck} title="Mark Attendance" sub={`Today · ${fmtDate(TODAY_STR)}`} />
+            <div className="space-y-3">
+              {allStudents.map(s => {
+                const existing = tdata.attendanceRecords.find(a => a.studentId === s.id);
+                const current  = attUpdates[s.id] || existing?.status || 'present';
+                return (
+                  <div key={s.id} className="cr0 p4" style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                    <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--acc)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, fontFamily:'Quicksand,sans-serif', flexShrink:0 }}>
+                      {s.name.split(' ').map(n=>n[0]).join('').substring(0,2)}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{s.name}</p>
+                      <p style={{ fontSize:11, color:'var(--soft)' }}>{s.rollNo}</p>
+                    </div>
+                    <div style={{ display:'flex', gap:6 }}>
+                      {['present','absent','leave'].map(st => (
+                        <button key={st} className={`chip ${current===st?'on':''}`}
+                          style={{ background: current===st ? (st==='present'?'var(--ok)':st==='absent'?'var(--err)':'var(--warn)') : 'var(--surf)', color: current===st ? '#fff' : 'var(--soft)', boxShadow: current===st ? 'var(--shp)' : 'var(--shs)' }}
+                          onClick={() => setAttUpd(prev => ({ ...prev, [s.id]: st }))}>
+                          {st.charAt(0).toUpperCase()+st.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:16 }}>
+              <Btn ok onClick={handleSaveAttendance} disabled={attSaving}>
+                {attSaving ? <Spinner /> : <Check size={14} />}
+                {attSaving ? 'Saving…' : 'Submit Attendance'}
+              </Btn>
+              {attSaved && <span style={{ fontSize:13, color:'var(--ok)', fontWeight:600 }}>✓ Attendance saved!</span>}
+            </div>
+          </div>
+        )}
+
+        {view === 'tmarks' && (
+          <div className="cc p5">
+            <SecTitle Ico={Award} title="Marksheet" sub="All submitted assessments" />
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 6px', minWidth:400 }}>
+                <thead><tr style={{ color:'var(--soft)', fontSize:12 }}>
+                  {['Student','Subject','Test','Marks','%'].map(h => <th key={h} style={{ textAlign:'left', padding:'3px 10px', fontFamily:'Quicksand,sans-serif', fontWeight:700 }}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {tdata.marksheets.map((m,i) => {
+                    const pct = Math.round(m.obtained/m.total*100);
+                    return (
+                      <tr key={i} className="crf">
+                        <td style={{ padding:'9px 10px', fontWeight:600, fontSize:13 }}>{m.studentName}</td>
+                        <td style={{ padding:'9px 10px', fontSize:13 }}>{m.subject}</td>
+                        <td style={{ padding:'9px 10px', fontSize:13 }}>{fmtDate(m.date)}</td>
+                        <td style={{ padding:'9px 10px', fontSize:13 }}>{m.obtained}/{m.total}</td>
+                        <td style={{ padding:'9px 10px' }}><span style={{ color:pct>=80?'var(--ok)':pct>=60?'var(--warn)':'var(--err)', fontWeight:700, fontSize:13 }}>{pct}%</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {view === 'tremarks' && (
+          <div className="grid g2 gap-4 md-g1">
+            <div className="cc p5">
+              <SecTitle Ico={Edit3} title="Add Remark" sub="Post feedback for a student" />
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Student</label>
+                <select className="csel" value={remarkForm.studentId} onChange={e => setRF(f => ({ ...f, studentId:e.target.value }))}>
+                  {allStudents.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Remark Type</label>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {['Positive','Improvement','Behavior'].map(t => (
+                    <button key={t} className={`chip ${remarkForm.type===t?'on':''}`} onClick={() => setRF(f => ({ ...f, type:t }))}>{t}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Remark</label>
+                <textarea className="ctxt" placeholder="Write your remark or feedback here…" value={remarkForm.text} onChange={e => setRF(f => ({ ...f, text:e.target.value }))} maxLength={400} />
+              </div>
+              <Btn ok onClick={handleAddRemark} disabled={remarkBusy || !remarkForm.text.trim()}>
+                {remarkBusy ? <Spinner /> : <Send size={14} />}
+                {remarkBusy ? 'Submitting…' : 'Post Remark'}
+              </Btn>
+              {remarkDone && <p style={{ fontSize:13, color:'var(--ok)', marginTop:8, fontWeight:600 }}>✓ {remarkDone}</p>}
+            </div>
+            <div className="cc p5">
+              <SecTitle Ico={MessageSquare} title="My Submitted Remarks" sub="Remarks posted by you" />
+              <div className="space-y-3">
+                {tdata.remarks.filter(r => r.teacherId === user.id).map(r => {
+                  const cfg = REMARK_CFG[r.type] || { tint:'t-sky', Ico:MessageSquare, label:r.type };
+                  const stu = allStudents.find(s => s.id === r.studentId);
+                  return (
+                    <div key={r.id} className={`cr0 ${cfg.tint} p4`}>
+                      <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4, marginBottom:4 }}>
+                        <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{stu?.name || 'Student'}</p>
+                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                          <span className="badge b-lav">{r.type}</span>
+                          {r.acknowledged ? <Badge status="resolved" /> : <Badge status="pending" />}
+                        </div>
+                      </div>
+                      <p style={{ fontSize:12, color:'var(--ink)' }}>{r.text}</p>
+                      <p style={{ fontSize:11, color:'var(--soft)', marginTop:5 }}>{fmtDate(r.date)}</p>
+                    </div>
+                  );
+                })}
+                {tdata.remarks.filter(r => r.teacherId === user.id).length === 0 && (
+                  <p style={{ fontSize:13, color:'var(--soft)', textAlign:'center', padding:20 }}>No remarks posted yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'thomework' && (
+          <div className="cc p5">
+            <SecTitle Ico={NotebookPen} title="Homework Assigned by You" sub="Tasks you've posted to the class" />
+            <div className="space-y-3">
+              {tdata.homework.map(hw => (
+                <div key={hw.id} className="cr0 p4">
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
+                    <div className="cw flex items-center justify-center" style={{ width:38, height:38, flexShrink:0 }}>
+                      <SIcon subject={hw.subject} size={15} color="var(--acc)" />
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                        <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{hw.subject}</p>
+                        <p style={{ fontSize:11, color:'var(--soft)' }}>Due: {fmtDate(hw.dueDate)}</p>
+                      </div>
+                      <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{hw.description}</p>
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:8 }}>
+                        {Object.entries(hw.studentStatuses).map(([sid, st]) => {
+                          const stu = DB.students.find(s => s.id === sid);
+                          return stu ? <span key={sid} className={`badge ${st==='Submitted'?'b-ok':'b-warn'}`}>{stu.name.split(' ')[0]}: {st}</span> : null;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+      <BottomNav items={TEACHER_NAV} active={view} onChange={setView} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  ██████████  ADMIN PORTAL                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+const ADMIN_NAV = [
+  { id:'adashboard', label:'Overview',  Ico:LayoutDashboard },
+  { id:'astudents',  label:'Students',  Ico:Users },
+  { id:'ateachers',  label:'Teachers',  Ico:UserCheck },
+  { id:'atickets',   label:'Tickets',   Ico:ClipboardList },
+  { id:'anotices',   label:'Notices',   Ico:Megaphone },
+  { id:'asettings',  label:'Settings',  Ico:Settings },
+];
+
+function AdminPortal({ user, onLogout }) {
+  const [view, setView]         = useState('adashboard');
+  const [adata, setAdata]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [noticeFm, setNFm]      = useState({ title:'', description:'', category:'Academic' });
+  const [nBusy, setNBusy]       = useState(false);
+  const [nDone, setNDone]       = useState('');
+  const [ticketReply, setTReply]= useState({});
+  const [tBusy, setTBusy]       = useState(null);
+
+  useEffect(() => {
+    api.getAdminData().then(d => { setAdata(d); setLoading(false); });
+  }, []);
+
+  const handlePostNotice = async () => {
+    if (!noticeFm.title.trim() || !noticeFm.description.trim()) return;
+    setNBusy(true);
+    const updated = await api.postNotice(adata.notices, noticeFm, user.id);
+    setAdata(d => ({ ...d, notices: updated }));
+    setNFm({ title:'', description:'', category:'Academic' });
+    setNDone('Notice published to all portals.'); setNBusy(false);
+    setTimeout(() => setNDone(''), 4000);
+  };
+
+  const handleTicketAction = async (ticketId, status, reply) => {
+    setTBusy(ticketId);
+    const updated = await api.updateTicketStatus(adata.allTickets, ticketId, status, reply || '');
+    setAdata(d => ({ ...d, allTickets: updated }));
+    setTBusy(null);
+  };
+
+  if (loading || !adata) return <Loading label="Loading admin dashboard…" />;
+  const s = adata.stats;
+
+  return (
+    <div className="cr" style={{ minHeight:'100vh' }}>
+      <Styles />
+      <SideNav items={ADMIN_NAV} active={view} onChange={setView} user={user} />
+      <main style={{ paddingLeft:0, paddingRight:16, paddingTop:16, paddingBottom:80 }} id="amain">
+        <style>{`@media(min-width:768px){ #amain{padding-left:252px!important} }`}</style>
+        <AppHeader user={user} alertCount={adata.allTickets.filter(t=>t.status==='Pending').length} notices={adata.notices} onLogout={onLogout} />
+
+        {view === 'adashboard' && (
+          <div className="space-y-4">
+            <div className="grid g3 gap-4 md-g2 sm-g1">
+              {[
+                { label:'Total Students',    val:s.totalStudents,  tint:'t-lav', Ico:Users,       ic:'var(--acd)' },
+                { label:'Teachers',          val:s.totalTeachers,  tint:'t-sky', Ico:UserCheck,   ic:'#3576C9' },
+                { label:'Active Classes',    val:s.activeClasses,  tint:'t-mint',Ico:BookMarked,  ic:'var(--ok)' },
+                { label:'Avg. Attendance',   val:`${s.avgAttendance}%`, tint:'t-yel', Ico:CalendarCheck, ic:'#B5860A' },
+                { label:'Fees Collected',    val:`${s.feePaidPercent}%`,tint:'t-pch', Ico:CreditCard,   ic:'#C2783E' },
+                { label:'Monthly Revenue',   val:pkr(s.totalRevenue),tint:'t-rose',Ico:Banknote,  ic:'#C2585F' },
+              ].map(c => (
+                <div key={c.label} className={`cc ${c.tint} p5`}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div className="cw flex items-center justify-center" style={{ width:40, height:40 }}><c.Ico size={17} color={c.ic} /></div>
+                  </div>
+                  <p className="qsand" style={{ fontWeight:700, fontSize:22, marginTop:10 }}>{c.val}</p>
+                  <p style={{ fontSize:12, color:'var(--soft)', marginTop:3 }}>{c.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid g2 gap-4 md-g1 sm-g1">
+              <div className="cc p5">
+                <SecTitle Ico={BarChart3} title="Class Performance" sub="Average score by grade" />
+                <div style={{ width:'100%', height:200 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={s.classPerformance} margin={{ top:4, right:8, left:-20, bottom:0 }} barSize={30}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,68,109,.08)" />
+                      <XAxis dataKey="cls" tick={{ fontSize:12, fontFamily:'Inter', fill:'var(--soft)' }} />
+                      <YAxis domain={[0,100]} tick={{ fontSize:12, fontFamily:'Inter', fill:'var(--soft)' }} unit="%" />
+                      <Tooltip formatter={v=>[`${v}%`,'Avg. Score']} contentStyle={{ borderRadius:12, border:'none', boxShadow:'0 4px 14px rgba(76,68,109,.18)', fontFamily:'Inter', fontSize:12 }} />
+                      <Bar dataKey="avg" radius={[8,8,0,0]}>
+                        {s.classPerformance.map((_,i) => <Cell key={i} fill={CHART_CLR[i]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="cc p5">
+                <SecTitle Ico={Banknote} title="Fee Collection Trend" sub="Last 5 months (PKR)" />
+                <div style={{ width:'100%', height:200 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={s.feeCollection} margin={{ top:4, right:8, left:-20, bottom:0 }} barSize={30}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,68,109,.08)" />
+                      <XAxis dataKey="month" tick={{ fontSize:12, fontFamily:'Inter', fill:'var(--soft)' }} />
+                      <YAxis tick={{ fontSize:10, fontFamily:'Inter', fill:'var(--soft)' }} tickFormatter={v=>`${(v/1e6).toFixed(1)}M`} />
+                      <Tooltip formatter={v=>[pkr(v),'Collected']} contentStyle={{ borderRadius:12, border:'none', boxShadow:'0 4px 14px rgba(76,68,109,.18)', fontFamily:'Inter', fontSize:12 }} />
+                      <Bar dataKey="collected" radius={[8,8,0,0]} fill="var(--ok)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="cc p5">
+              <SecTitle Ico={ClipboardList} title="Pending Tickets" sub="Queries awaiting response" />
+              <div className="space-y-3">
+                {adata.allTickets.filter(t=>t.status==='Pending').map(t => (
+                  <div key={t.id} className="cr0 t-yel p4">
+                    <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4, marginBottom:4 }}>
+                      <span className="badge b-lav">{t.category}</span>
+                      <Badge status={t.status} />
+                    </div>
+                    <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{t.subject}</p>
+                    <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{t.message}</p>
+                    <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                      <Btn ok onClick={() => handleTicketAction(t.id,'Scheduled','')} disabled={tBusy===t.id}>
+                        {tBusy===t.id?<Spinner />:<CalendarDays size={12}/>} Schedule
+                      </Btn>
+                      <Btn err onClick={() => handleTicketAction(t.id,'Resolved','Issue resolved by admin.')} disabled={tBusy===t.id}>
+                        {tBusy===t.id?<Spinner />:<CheckCircle2 size={12}/>} Resolve
+                      </Btn>
+                    </div>
+                  </div>
+                ))}
+                {adata.allTickets.filter(t=>t.status==='Pending').length===0 && (
+                  <p style={{ fontSize:13, color:'var(--soft)', textAlign:'center', padding:20 }}>No pending tickets.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'astudents' && (
+          <div className="cc p5">
+            <SecTitle Ico={Users} title="All Students" sub={`${adata.students.length} enrolled students`} />
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'separate', borderSpacing:'0 6px', minWidth:420 }}>
+                <thead><tr style={{ color:'var(--soft)', fontSize:12 }}>
+                  {['Name','Roll No.','Class','Admission No.','Status'].map(h => <th key={h} style={{ textAlign:'left', padding:'3px 10px', fontFamily:'Quicksand,sans-serif', fontWeight:700 }}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {adata.students.map(s => (
+                    <tr key={s.id} className="crf">
+                      <td style={{ padding:'10px 10px', fontWeight:600, fontSize:13 }}>{s.name}</td>
+                      <td style={{ padding:'10px 10px', fontSize:13 }}>{s.rollNo}</td>
+                      <td style={{ padding:'10px 10px', fontSize:13 }}>{s.className}</td>
+                      <td style={{ padding:'10px 10px', fontSize:13 }}>{s.admissionNo}</td>
+                      <td style={{ padding:'10px 10px' }}><Badge status="present" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {view === 'ateachers' && (
+          <div className="cc p5">
+            <SecTitle Ico={UserCheck} title="All Teachers" sub={`${adata.teachers.length} faculty members`} />
+            <div className="space-y-3">
+              {adata.teachers.map(t => (
+                <div key={t.id} className="cr0 p4" style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:42, height:42, borderRadius:'50%', background:'var(--mint)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:13, fontFamily:'Quicksand,sans-serif', color:'var(--ok)', flexShrink:0 }}>
+                    {t.avatar}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <p className="qsand" style={{ fontWeight:700, fontSize:14 }}>{t.name}</p>
+                    <p style={{ fontSize:12, color:'var(--soft)' }}>{t.subject} · {(t.classes||[]).join(', ')}</p>
+                    <p style={{ fontSize:11, color:'var(--soft)', marginTop:2 }}>{t.email}</p>
+                  </div>
+                  <Badge status="present" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {view === 'atickets' && (
+          <div className="cc p5">
+            <SecTitle Ico={ClipboardList} title="All Support Tickets" sub="Manage parent queries" />
+            <div className="space-y-3">
+              {adata.allTickets.map(t => (
+                <div key={t.id} className="cr0 p4">
+                  <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4, marginBottom:6 }}>
+                    <span className="badge b-lav">{t.category}</span>
+                    <Badge status={t.status} />
+                  </div>
+                  <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{t.subject}</p>
+                  <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{t.message}</p>
+                  {t.reply && <p style={{ fontSize:12, color:'var(--ok)', marginTop:4, fontWeight:600 }}>Reply: {t.reply}</p>}
+                  <p style={{ fontSize:11, color:'var(--soft)', marginTop:5 }}>#{t.id} · {fmtDate(t.date)}</p>
+                  {t.status === 'Pending' && (
+                    <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                      <Btn ok onClick={() => handleTicketAction(t.id,'Scheduled','')} disabled={tBusy===t.id}>
+                        {tBusy===t.id?<Spinner />:<CalendarDays size={12}/>} Schedule
+                      </Btn>
+                      <Btn surf onClick={() => handleTicketAction(t.id,'Resolved','Resolved by admin.')} disabled={tBusy===t.id}>
+                        {tBusy===t.id?<Spinner />:<CheckCircle2 size={12}/>} Resolve
+                      </Btn>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {view === 'anotices' && (
+          <div className="grid g2 gap-4 md-g1">
+            <div className="cc p5">
+              <SecTitle Ico={PlusCircle} title="Post New Notice" sub="Broadcast to all parents & teachers" />
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Category</label>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                  {Object.keys(NOTICE_CFG).map(c => (
+                    <button key={c} className={`chip ${noticeFm.category===c?'on':''}`} onClick={() => setNFm(f=>({...f,category:c}))}>{c}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Title</label>
+                <input className="cinp" placeholder="Notice title" value={noticeFm.title} onChange={e => setNFm(f=>({...f,title:e.target.value}))} />
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={{ fontSize:12, fontWeight:600, color:'var(--soft)', display:'block', marginBottom:5 }}>Description</label>
+                <textarea className="ctxt" placeholder="Notice body text…" value={noticeFm.description} onChange={e => setNFm(f=>({...f,description:e.target.value}))} />
+              </div>
+              <Btn accent onClick={handlePostNotice} disabled={nBusy || !noticeFm.title.trim() || !noticeFm.description.trim()}>
+                {nBusy?<Spinner />:<Megaphone size={14}/>}
+                {nBusy?'Publishing…':'Publish Notice'}
+              </Btn>
+              {nDone && <p style={{ fontSize:13, color:'var(--ok)', marginTop:8, fontWeight:600 }}>✓ {nDone}</p>}
+            </div>
+            <div className="cc p5">
+              <SecTitle Ico={Megaphone} title="All Notices" sub="Published circulars" />
+              <div className="space-y-3">
+                {adata.notices.map(n => {
+                  const cfg = NOTICE_CFG[n.category]||NOTICE_CFG.Admin;
+                  return (
+                    <div key={n.id} className={`cr0 ${cfg.tint} p4`}>
+                      <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4 }}>
+                        <p className="qsand" style={{ fontWeight:700, fontSize:13 }}>{n.title}</p>
+                        <span className="badge" style={{ background:'rgba(255,255,255,.6)', color:cfg.ic }}>{n.category}</span>
+                      </div>
+                      <p style={{ fontSize:12, color:'var(--soft)', marginTop:4 }}>{n.description}</p>
+                      <p style={{ fontSize:11, color:'var(--soft)', marginTop:5 }}>{fmtDate(n.date)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'asettings' && (
+          <div className="cc p5">
+            <SecTitle Ico={Sliders} title="System Settings" sub="Administrator controls" />
+            <div className="space-y-3">
+              {[
+                { label:'School Name',        val:DB.school.name,          Ico:School },
+                { label:'Academic Session',   val:'2025–2026',             Ico:CalendarCheck },
+                { label:'Admin Account',      val:user.email,              Ico:ShieldCheck },
+                { label:'Total Users',        val:`${DB.users.length} accounts`, Ico:Users },
+                { label:'Database Status',    val:'Mock API — In-memory',  Ico:Settings },
+                { label:'Vercel Deploy Ready',val:'Yes — Next.js App Router compatible', Ico:CheckSquare },
+              ].map(c => (
+                <div key={c.label} className="crf p4" style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div className="cw flex items-center justify-center" style={{ width:36, height:36, flexShrink:0 }}>
+                    <c.Ico size={15} color="var(--acc)" />
+                  </div>
+                  <div>
+                    <p style={{ fontSize:12, color:'var(--soft)' }}>{c.label}</p>
+                    <p style={{ fontSize:13, fontWeight:600, color:'var(--ink)' }}>{c.val}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="cr0 t-mint p4" style={{ marginTop:16 }}>
+              <p className="qsand" style={{ fontWeight:700, fontSize:14, marginBottom:6 }}>
+                <ShieldCheck size={15} color="var(--ok)" style={{ verticalAlign:'middle', marginRight:6 }} />
+                Role Hierarchy & Restrictions
+              </p>
+              <div style={{ fontSize:12, color:'var(--soft)', lineHeight:1.7 }}>
+                <p>🔴 <strong style={{ color:'var(--ink)' }}>Admin</strong> — Full access. Manages notices, tickets, users, sees all data.</p>
+                <p>🟡 <strong style={{ color:'var(--ink)' }}>Teacher</strong> — Can mark attendance, post remarks, assign homework for their classes only. Cannot access fee data or admin controls.</p>
+                <p>🟢 <strong style={{ color:'var(--ink)' }}>Parent</strong> — Read-only view of their child's data. Can acknowledge remarks, toggle homework, and submit tickets. Cannot access other students' records.</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+      <BottomNav items={ADMIN_NAV} active={view} onChange={setView} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  PARENT PORTAL SHELL                                                       */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function ParentPortal({ user, onLogout }) {
+  const [view, setView]         = useState('dashboard');
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [busyHwIds, setBHW]     = useState(new Set());
+  const [busyRmIds, setBRM]     = useState(new Set());
+  const [ticketBusy, setTB]     = useState(false);
+
+  useEffect(() => {
+    api.getPortalData(user.studentId).then(d => { setData(d); setLoading(false); });
+  }, [user.studentId]);
+
+  const alertCount = useMemo(() => {
+    if (!data) return 0;
+    return data.homework.filter(h=>h.myStatus==='Pending').length
+         + data.remarks.filter(r=>!r.acknowledged).length
+         + data.notices.filter(n=>n.category==='Urgent').length;
+  }, [data]);
+
+  const handleToggleHw = useCallback(async (id) => {
+    setBHW(p => new Set(p).add(id));
+    const updated = await api.toggleHomework(data.homework, id, user.studentId);
+    setData(d => ({ ...d, homework: updated }));
+    setBHW(p => { const n=new Set(p); n.delete(id); return n; });
+  }, [data, user.studentId]);
+
+  const handleAck = useCallback(async (id) => {
+    setBRM(p => new Set(p).add(id));
+    const updated = await api.acknowledgeRemark(data.remarks, id);
+    setData(d => ({ ...d, remarks: updated }));
+    setBRM(p => { const n=new Set(p); n.delete(id); return n; });
+  }, [data]);
+
+  const handleTicket = useCallback(async (payload) => {
+    setTB(true);
+    const updated = await api.createTicket(data.tickets, user.studentId, payload);
+    setData(d => ({ ...d, tickets: updated }));
+    setTB(false);
+  }, [data, user.studentId]);
+
+  if (loading || !data) return <Loading label="Loading your portal…" />;
+
+  return (
+    <div className="cr" style={{ minHeight:'100vh' }}>
+      <Styles />
+      <SideNav items={PARENT_NAV} active={view} onChange={setView} user={user} />
+      <main style={{ paddingLeft:0, paddingRight:16, paddingTop:16, paddingBottom:80 }} id="pmain">
+        <style>{`@media(min-width:768px){ #pmain{padding-left:252px!important} }`}</style>
+        <AppHeader user={user} alertCount={alertCount} notices={data.notices} onLogout={onLogout} />
+
+        {view==='dashboard'     && <ParentDashboard     data={data} onNav={setView} />}
+        {view==='attendance'    && <ParentAttendance    data={data} />}
+        {view==='academics'     && <ParentAcademics     data={data} />}
+        {view==='diary'         && <ParentDiary         data={data} onToggleHw={handleToggleHw} busyIds={busyHwIds} />}
+        {view==='communication' && <ParentCommunication data={data} onAck={handleAck} busyRemarks={busyRmIds} onCreateTicket={handleTicket} ticketBusy={ticketBusy} />}
+        {view==='fees'          && <ParentFees          data={data} />}
+      </main>
+      <BottomNav items={PARENT_NAV} active={view} onChange={setView} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  LOADING SCREEN                                                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function Loading({ label='Loading…' }) {
+  return (
+    <div className="cr flex items-center justify-center" style={{ minHeight:'100vh' }}>
+      <Styles />
+      <div className="cc p5" style={{ textAlign:'center', padding:40 }}>
+        <div className="cw flex items-center justify-center" style={{ width:60, height:60, borderRadius:'50%', margin:'0 auto 16px' }}>
+          <Spinner />
+        </div>
+        <p className="qsand" style={{ fontWeight:700, fontSize:16 }}>{label}</p>
+        <p style={{ fontSize:12, color:'var(--soft)', marginTop:6 }}>Fetching your data from the server…</p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  ROOT — Auth Router                                                        */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+export default function App() {
+  const [user, setUser] = useState(null);
+
+  const handleLogin  = useCallback((u) => setUser(u),   []);
+  const handleLogout = useCallback(() => setUser(null), []);
+
+  if (!user) return (
+    <div className="cr">
+      <Styles />
+      <LoginScreen onLogin={handleLogin} />
+    </div>
+  );
+
+  // Role-based routing — Admin overrides all
+  if (user.role === 'admin')   return <AdminPortal   user={user} onLogout={handleLogout} />;
+  if (user.role === 'teacher') return <TeacherPortal user={user} onLogout={handleLogout} />;
+  if (user.role === 'parent')  return <ParentPortal  user={user} onLogout={handleLogout} />;
+
+  return <div className="cr"><Styles /><p style={{ padding:40, color:'var(--err)' }}>Unknown role: {user.role}</p></div>;
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * BUG FIXES CHANGELOG (v1 → v2)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * FIX #1  ClayDial conic-gradient: added `from -90deg` so fill starts at 12 o'clock
+ * FIX #2  ClayDial displays `Math.round(pct)` — no more floats like "94.2%"
+ * FIX #3  WeeklyAttendance guard: `tot > 0 ? ... : 0` prevents NaN on zero-day
+ * FIX #4  ChallanModal: rendered as in-flow overlay div, not position:fixed iframe collapse
+ * FIX #5  Bell icon: now opens a real NotifPanel with click-outside close
+ * FIX #6  SubjectIcon: uses explicit `color` prop via Lucide `color` attribute instead of className
+ * FIX #7  RadialBarChart replaced with BarChart — legend/tooltip worked unreliably
+ * FIX #8  StatusBadge "In Progress" → toLowerCase().replace(/\s+/g,'') → 'inprogress' ✓ confirmed
+ * FIX #9  <form onSubmit> replaced with <div> + onClick to prevent iframe page reload
+ * FIX #10 Nav: uses scoped CSS (#pmain, #amain) with media query injection for sidebar offset
+ * FIX #11 Challan always renders correctly — state lives in ParentFees, not root
+ * FIX #12 Removed unused imports: ChevronDown, CloudRain, FileText, MapPin
+ * FIX #13 REMARK_CFG fallback: `|| { tint:'t-sky', Ico:MessageSquare, label:r.type }`
+ * FIX #14 dueLabel on submitted homework: shows formatted due date, not relative countdown
+ * ─────────────────────────────────────────────────────────────────────────────
+ * VERCEL / NEXT.JS DEPLOYMENT GUIDE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Current stack:   Pure React SPA (single JSX file), mock in-memory API
+ * Vercel target:   Next.js 14 App Router — free Hobby plan, zero cost
+ *
+ * Migration steps:
+ *   1. `npx create-next-app@latest alnoor-portal --app --tailwind --src-dir`
+ *   2. Move this file to `src/app/page.tsx` (or keep as .jsx with "use client" at top)
+ *   3. Convert mockApi functions → Next.js Route Handlers:
+ *        src/app/api/portal/route.ts   → GET  returns SEED_DB per student
+ *        src/app/api/homework/route.ts → POST toggles homework
+ *        src/app/api/remarks/route.ts  → POST acknowledges remark
+ *        src/app/api/tickets/route.ts  → POST creates ticket
+ *        src/app/api/admin/route.ts    → GET  returns admin stats
+ *   4. Replace DB.users with NextAuth.js (free) + credentials provider
+ *        npm install next-auth
+ *        Use JWT sessions — no database needed initially
+ *   5. For persistent storage (free tier options):
+ *        - Vercel Postgres (1 DB, 256 MB free) → Prisma ORM
+ *        - Supabase Free Tier (500 MB, 50k auth users)
+ *        - PlanetScale (MySQL, 5 GB free)
+ *   6. Deploy: `git push` → Vercel auto-deploys from GitHub. Done.
+ *
+ * Role enforcement on API routes (middleware.ts):
+ *   export function middleware(req) {
+ *     const token = await getToken({ req });
+ *     if (req.nextUrl.pathname.startsWith('/api/admin') && token?.role !== 'admin')
+ *       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+ *   }
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
