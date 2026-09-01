@@ -380,3 +380,29 @@ CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON profiles
 
 CREATE TRIGGER fees_updated_at BEFORE UPDATE ON fees
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ════════════════════════════════════════════════════════════
+-- REALTIME PUBLICATION SETUP
+-- ════════════════════════════════════════════════════════════
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE students;
+ALTER PUBLICATION supabase_realtime ADD TABLE teachers;
+ALTER PUBLICATION supabase_realtime ADD TABLE attendance;
+ALTER PUBLICATION supabase_realtime ADD TABLE assessments;
+ALTER PUBLICATION supabase_realtime ADD TABLE fees;
+ALTER PUBLICATION supabase_realtime ADD TABLE notices;
+ALTER PUBLICATION supabase_realtime ADD TABLE approval_requests;
+ALTER PUBLICATION supabase_realtime ADD TABLE homework;
+ALTER PUBLICATION supabase_realtime ADD TABLE homework_completions;
+ALTER PUBLICATION supabase_realtime ADD TABLE tickets;
+ALTER PUBLICATION supabase_realtime ADD TABLE teacher_remarks;
+ALTER PUBLICATION supabase_realtime ADD TABLE parent_messages;
+

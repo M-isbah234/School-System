@@ -92,8 +92,22 @@ export async function getUsers(): Promise<AdminUser[]> {
   return safeFallback;
 }
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function isValidUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Promise<AdminUser> {
-  const newId = user.id || `USR-${Date.now().toString().slice(-5)}`;
+  const newId = (user.id && isValidUUID(user.id)) ? user.id : generateUUID();
   const newUser: AdminUser = {
     id: newId, name: user.name, role: user.role, email: user.email,
     phone: user.phone || '+92-300-0000000', status: user.status || 'active',
@@ -105,21 +119,38 @@ export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Pr
   };
 
   try {
-    await supabase.from('profiles').insert([{
+    const { error: pErr } = await supabase.from('profiles').insert([{
       id: newId, name: newUser.name, role: newUser.role,
       email: newUser.email, phone: newUser.phone, status: newUser.status, join_date: newUser.joinDate,
     }]);
+    if (pErr) console.warn('Profiles insert:', pErr.message);
 
     if (newUser.role === 'student' && newUser.class) {
-      await supabase.from('students').insert([{ id: newId, roll_no: `SP-2026-${Date.now().toString().slice(-4)}`, class_name: newUser.class, section: 'A' }]);
+      const { error: sErr } = await supabase.from('students').insert([{
+        id: newId,
+        roll_no: `SP-2026-${Date.now().toString().slice(-4)}`,
+        class_name: newUser.class,
+        section: 'A',
+        father_name: newUser.fatherName || null,
+        mother_name: newUser.motherName || null,
+        emergency_contact: newUser.parentPhone || null,
+      }]);
+      if (sErr) console.warn('Students insert:', sErr.message);
     } else if (newUser.role === 'teacher') {
-      await supabase.from('teachers').insert([{ id: newId, employee_id: `TCH-${Date.now().toString().slice(-3)}`, department: newUser.department || 'General', subjects: newUser.subjects || [] }]);
+      const { error: tErr } = await supabase.from('teachers').insert([{
+        id: newId,
+        employee_id: `TCH-${Date.now().toString().slice(-3)}`,
+        department: newUser.department || 'General',
+        subjects: newUser.subjects || [],
+      }]);
+      if (tErr) console.warn('Teachers insert:', tErr.message);
     }
 
     const freshUsers = await getUsers();
     setLocal(USERS_KEY, freshUsers);
     return freshUsers.find(u => u.id === newId) ?? newUser;
-  } catch {
+  } catch (err) {
+    console.error('addUser error:', err);
     const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
     const updated = [newUser, ...current];
     setLocal(USERS_KEY, updated);
@@ -133,31 +164,35 @@ export async function toggleUserStatus(id: string): Promise<AdminUser[]> {
   const nextStatus: AdminUser['status'] = target?.status === 'active' ? 'inactive' : 'active';
 
   try {
-    const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', id);
-    if (error) throw error;
-    const freshUsers = await getUsers();
-    setLocal(USERS_KEY, freshUsers);
-    return freshUsers;
-  } catch {
-    const updated = current.map(u => u.id === id ? { ...u, status: nextStatus } : u);
-    setLocal(USERS_KEY, updated);
-    return updated;
-  }
+    if (isValidUUID(id)) {
+      const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', id);
+      if (error) throw error;
+      const freshUsers = await getUsers();
+      setLocal(USERS_KEY, freshUsers);
+      return freshUsers;
+    }
+  } catch {}
+
+  const updated = current.map(u => u.id === id ? { ...u, status: nextStatus } : u);
+  setLocal(USERS_KEY, updated);
+  return updated;
 }
 
 export async function deleteUser(id: string): Promise<AdminUser[]> {
   try {
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) throw error;
-    const freshUsers = await getUsers();
-    setLocal(USERS_KEY, freshUsers);
-    return freshUsers;
-  } catch {
-    const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
-    const updated = current.filter(u => u.id !== id);
-    setLocal(USERS_KEY, updated);
-    return updated;
-  }
+    if (isValidUUID(id)) {
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) throw error;
+      const freshUsers = await getUsers();
+      setLocal(USERS_KEY, freshUsers);
+      return freshUsers;
+    }
+  } catch {}
+
+  const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
+  const updated = current.filter(u => u.id !== id);
+  setLocal(USERS_KEY, updated);
+  return updated;
 }
 
 // ── FEES ───────────────────────────────────────────────────

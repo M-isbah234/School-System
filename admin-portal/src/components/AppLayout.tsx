@@ -120,7 +120,12 @@ function MobileDrawer({ pathname, onNavigate, onClose }: { pathname: string; onN
 }
 
 export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const [dateStr, setDateStr] = React.useState('');
+
+  React.useEffect(() => {
+    setDateStr(new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
+  }, []);
+
   return (
     <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md h-16 flex items-center justify-between px-4 md:px-6 border-b border-slate-200">
       <div>
@@ -128,7 +133,7 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
         {subtitle && <p className="text-xs text-slate-500 hidden md:block mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
-        <div className="hidden lg:block text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{dateStr}</div>
+        {dateStr && <div className="hidden lg:block text-xs font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{dateStr}</div>}
         <button className="hidden md:flex w-9 h-9 rounded-lg bg-white border border-slate-200 items-center justify-center text-slate-500 hover:bg-slate-50">
           <Search size={15} />
         </button>
