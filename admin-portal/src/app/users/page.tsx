@@ -58,8 +58,9 @@ export default function UsersPage() {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    const channel = supabase
-      .channel('admin-users-sync')
+    const channel = supabase.channel('admin-users-sync');
+
+    channel
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles' },
@@ -74,8 +75,18 @@ export default function UsersPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'teachers' },
         () => { void loadData(); }
-      )
-      .subscribe();
+      );
+
+    try {
+      void channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') return;
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Realtime sync unavailable, using manual refresh fallback.');
+        }
+      });
+    } catch (error) {
+      console.warn('Realtime subscription failed:', error);
+    }
 
     return () => {
       window.removeEventListener('focus', handleFocus);
@@ -84,13 +95,18 @@ export default function UsersPage() {
     };
   }, []);
 
-  const filtered = users.filter(u => {
+  const filtered = (users || []).filter(u => {
+    if (!u) return false;
     const matchRole = roleFilter === 'all' || u.role === roleFilter;
     const matchClass = classFilter === 'all' || u.class === classFilter;
+    const nameStr = (u.name || '').toLowerCase();
+    const emailStr = (u.email || '').toLowerCase();
+    const fatherStr = (u.fatherName || '').toLowerCase();
+    const searchLower = (search || '').toLowerCase();
     const matchSearch = !search ||
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.fatherName && u.fatherName.toLowerCase().includes(search.toLowerCase()));
+      nameStr.includes(searchLower) ||
+      emailStr.includes(searchLower) ||
+      fatherStr.includes(searchLower);
     return matchRole && matchClass && matchSearch;
   });
 
@@ -252,7 +268,7 @@ export default function UsersPage() {
                             />
                           ) : (
                             <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                              {user.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                              {(user.name || 'User').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('')}
                             </div>
                           )}
                           <div>
@@ -351,7 +367,7 @@ export default function UsersPage() {
                   />
                 ) : (
                   <div className="w-20 h-20 rounded-2xl bg-violet-100 border-2 border-white shadow-md flex items-center justify-center text-xl font-bold text-violet-600">
-                    {selectedUser.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                    {(selectedUser.name || 'User').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('')}
                   </div>
                 )}
                 <button

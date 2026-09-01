@@ -5,6 +5,7 @@ import { TopBar } from '@/components/AppLayout';
 import { ClayCard, ClayButton, ClayBadge, ClayModal } from '@/components/ui';
 import { MessageSquare, CheckCircle2, User, Ticket, Plus, Send, Calendar } from 'lucide-react';
 import { getTeacherRemarksList, acknowledgeRemark, getTicketsList, createTicket } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 // --- TEACHER REMARKS COMPONENT ---
 function TeacherRemarks({ remarks, onAcknowledge }: { remarks: any[], onAcknowledge: (id: string) => void }) {
@@ -200,13 +201,37 @@ export default function CommunicationPage() {
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
       const [rList, tList] = await Promise.all([getTeacherRemarksList(), getTicketsList()]);
       setRemarks(rList);
       setTickets(tList);
       setLoading(false);
     }
-    loadData();
+
+    const handleFocus = () => { void loadData(); };
+    const handleVisibility = () => { if (!document.hidden) void loadData(); };
+
+    void loadData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('student-comm-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_remarks' }, () => { void loadData(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => { void loadData(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, []);
 
   const handleAcknowledge = async (id: string) => {

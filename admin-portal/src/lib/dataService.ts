@@ -40,37 +40,43 @@ async function trySupabase<T>(fn: () => Promise<T>): Promise<T | null> {
 export async function getUsers(): Promise<AdminUser[]> {
   const cached = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
 
-  try {
+  const result = await trySupabase(async () => {
     const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*');
-    if (profilesError) throw profilesError;
+    if (profilesError || !profiles) throw profilesError || new Error('empty');
 
     const { data: students } = await supabase.from('students').select('*');
     const { data: teachers } = await supabase.from('teachers').select('*');
     const stuMap = new Map(students?.map(s => [s.id, s]) ?? []);
     const tchMap = new Map(teachers?.map(t => [t.id, t]) ?? []);
 
-    const mappedUsers = (profiles ?? []).map((p): AdminUser => {
+    return profiles.map((p): AdminUser => {
       const stu = stuMap.get(p.id) as any;
       const tch = tchMap.get(p.id) as any;
       return {
-        id: p.id,
-        name: p.name,
-        role: p.role as AdminUser['role'],
-        email: p.email,
-        phone: p.phone || '',
-        status: p.status as AdminUser['status'],
-        joinDate: p.join_date || '',
+        id: p.id || `USR-${Math.random()}`,
+        name: p.name || 'Unknown User',
+        role: (p.role || 'student') as AdminUser['role'],
+        email: p.email || 'user@school.edu.pk',
+        phone: p.phone || '+92-300-0000000',
+        status: (p.status || 'active') as AdminUser['status'],
+        joinDate: p.join_date || new Date().toISOString().split('T')[0],
         class: stu?.class_name,
         department: tch?.department,
         subjects: tch?.subjects,
+        avatar: p.avatar_url || stu?.avatar || tch?.avatar,
+        fatherName: stu?.father_name,
+        motherName: stu?.mother_name,
+        parentEmail: stu?.parent_email,
+        parentPhone: stu?.parent_phone,
       };
     });
+  });
 
-    setLocal(USERS_KEY, mappedUsers);
-    return mappedUsers;
-  } catch {
-    return cached;
+  if (result && result.length) {
+    setLocal(USERS_KEY, result);
+    return result;
   }
+  return cached;
 }
 
 export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Promise<AdminUser> {

@@ -6,6 +6,7 @@ import { Card, Button } from '@/components/ui';
 import { BookOpen, Save, TrendingUp } from 'lucide-react';
 import { GradeEntry } from '@/lib/mockData';
 import { getGradeBook, updateGrade as updateGradeService } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 export default function AcademicsPage() {
   const [selectedClass, setSelectedClass] = useState('8-A');
@@ -18,12 +19,35 @@ export default function AcademicsPage() {
 
   useEffect(() => {
     async function loadGrades() {
-      setLoading(true);
       const data = await getGradeBook(selectedClass);
       setGrades(data);
       setLoading(false);
     }
-    loadGrades();
+
+    const handleFocus = () => { void loadGrades(); };
+    const handleVisibility = () => { if (!document.hidden) void loadGrades(); };
+
+    void loadGrades();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('teacher-grades-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'grades' }, () => { void loadGrades(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, [selectedClass]);
 
   const handleUpdateGrade = async (studentId: string, field: keyof GradeEntry, value: number) => {

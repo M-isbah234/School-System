@@ -6,6 +6,7 @@ import { Badge, Button, Modal } from '@/components/ui';
 import { MessageSquare, Send, Star, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { ParentMessage } from '@/lib/mockData';
 import { getParentMessages, markMessageRead } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 export default function CommunicationPage() {
   const [messages, setMessages] = useState<ParentMessage[]>([]);
@@ -17,12 +18,35 @@ export default function CommunicationPage() {
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
       const data = await getParentMessages();
       setMessages(data);
       setLoading(false);
     }
-    loadData();
+
+    const handleFocus = () => { void loadData(); };
+    const handleVisibility = () => { if (!document.hidden) void loadData(); };
+
+    void loadData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('teacher-comm-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'parent_messages' }, () => { void loadData(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, []);
 
   const handleOpen = async (msg: ParentMessage) => {

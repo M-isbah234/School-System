@@ -6,6 +6,7 @@ import { Card, Button, Modal } from '@/components/ui';
 import { Check, X, Save, Users, CalendarCheck } from 'lucide-react';
 import { AttendanceRecord, AttendanceStatus } from '@/lib/mockData';
 import { getAttendanceRecords, saveAttendanceRecords } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 export default function AttendancePage() {
   const [selectedClass, setSelectedClass] = useState('8-A');
@@ -17,12 +18,35 @@ export default function AttendancePage() {
 
   useEffect(() => {
     async function loadAttendance() {
-      setLoading(true);
       const records = await getAttendanceRecords(selectedClass);
       setAttendance(records);
       setLoading(false);
     }
-    loadAttendance();
+
+    const handleFocus = () => { void loadAttendance(); };
+    const handleVisibility = () => { if (!document.hidden) void loadAttendance(); };
+
+    void loadAttendance();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('teacher-attendance-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => { void loadAttendance(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, [selectedClass]);
 
   const setStatus = (studentId: string, status: AttendanceStatus) => {

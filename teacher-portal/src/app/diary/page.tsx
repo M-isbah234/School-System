@@ -6,6 +6,7 @@ import { Card, Button, Modal } from '@/components/ui';
 import { Plus, Calendar, Clock } from 'lucide-react';
 import { HomeworkEntry } from '@/lib/mockData';
 import { getHomeworkEntries, addHomework } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 export default function DiaryPage() {
   const [homework, setHomework] = useState<HomeworkEntry[]>([]);
@@ -23,12 +24,35 @@ export default function DiaryPage() {
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
       const entries = await getHomeworkEntries();
       setHomework(entries);
       setLoading(false);
     }
-    loadData();
+
+    const handleFocus = () => { void loadData(); };
+    const handleVisibility = () => { if (!document.hidden) void loadData(); };
+
+    void loadData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('teacher-diary-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'homework' }, () => { void loadData(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, []);
 
   const handleSubmit = async () => {

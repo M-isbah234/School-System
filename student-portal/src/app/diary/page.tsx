@@ -4,8 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { TopBar } from '@/components/AppLayout';
 import { ClayCard, ClayBadge } from '@/components/ui';
 import { BookOpen, Calendar, CheckCircle2, Circle, AlertTriangle, Megaphone, Info, PartyPopper, CloudRain, ChevronDown, ChevronUp } from 'lucide-react';
-import { getHomeworkList, toggleHomework } from '@/lib/dataService';
-import { notices } from '@/lib/mockData';
+import { getHomeworkList, toggleHomework, getNoticesList } from '@/lib/dataService';
+import { notices as defaultNotices } from '@/lib/mockData';
+import { supabase } from '@/lib/supabase';
 
 // --- HOMEWORK FEED COMPONENT ---
 function HomeworkFeed({ homework, onToggleComplete }: { homework: any[], onToggleComplete: (id: string) => void }) {
@@ -126,16 +127,42 @@ function NoticeBoard({ noticesList }: { noticesList: any[] }) {
 // --- MAIN PAGE ---
 export default function DiaryPage() {
   const [homework, setHomework] = useState<any[]>([]);
+  const [noticesList, setNoticesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
-      const list = await getHomeworkList();
-      setHomework(list);
+      const [hw, nt] = await Promise.all([getHomeworkList(), getNoticesList()]);
+      setHomework(hw);
+      setNoticesList(nt && nt.length ? nt : defaultNotices);
       setLoading(false);
     }
-    loadData();
+
+    const handleFocus = () => { void loadData(); };
+    const handleVisibility = () => { if (!document.hidden) void loadData(); };
+
+    void loadData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    try {
+      const channel = supabase.channel('student-diary-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'homework' }, () => { void loadData(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => { void loadData(); });
+
+      void channel.subscribe();
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        void supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, []);
 
   const handleToggleComplete = async (id: string) => {
@@ -156,7 +183,7 @@ export default function DiaryPage() {
       <TopBar title="Digital Diary & Notices" subtitle="Track daily homework and stay updated with school announcements — Supabase Connected" />
       <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in-up">
         <HomeworkFeed homework={homework} onToggleComplete={handleToggleComplete} />
-        <NoticeBoard noticesList={notices} />
+        <NoticeBoard noticesList={noticesList} />
       </div>
     </div>
   );
