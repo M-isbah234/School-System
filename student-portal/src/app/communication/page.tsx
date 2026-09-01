@@ -215,7 +215,7 @@ export default function CommunicationPage() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     try {
-      const channel = supabase.channel('student-comm-sync')
+      const channel = supabase.channel(`student-comm-sync-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'teacher_remarks' }, () => { void loadData(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => { void loadData(); });
 

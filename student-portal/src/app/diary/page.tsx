@@ -146,7 +146,7 @@ export default function DiaryPage() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     try {
-      const channel = supabase.channel('student-diary-sync')
+      const channel = supabase.channel(`student-diary-sync-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'homework' }, () => { void loadData(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => { void loadData(); });
 

@@ -60,26 +60,14 @@ export default function UsersPage() {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    const channel = supabase.channel('admin-users-sync');
-
-    channel
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        () => { void loadData(); }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'students' },
-        () => { void loadData(); }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'teachers' },
-        () => { void loadData(); }
-      );
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     try {
+      channel = supabase.channel(`admin-users-sync-${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void loadData(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => { void loadData(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => { void loadData(); });
+
       void channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') return;
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -93,7 +81,9 @@ export default function UsersPage() {
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
-      void supabase.removeChannel(channel);
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, []);
 

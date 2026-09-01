@@ -31,7 +31,7 @@ export default function AttendancePage() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     try {
-      const channel = supabase.channel('teacher-attendance-sync')
+      const channel = supabase.channel(`teacher-attendance-sync-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => { void loadAttendance(); });
 
       void channel.subscribe();

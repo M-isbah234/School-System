@@ -32,7 +32,7 @@ export default function AcademicsPage() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     try {
-      const channel = supabase.channel('teacher-grades-sync')
+      const channel = supabase.channel(`teacher-grades-sync-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'grades' }, () => { void loadGrades(); });
 
       void channel.subscribe();
