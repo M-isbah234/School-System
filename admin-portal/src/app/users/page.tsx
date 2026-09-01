@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { adminUsers, AdminUser, UserRole } from '@/lib/mockData';
 import { getUsers, addUser, toggleUserStatus, deleteUser } from '@/lib/dataService';
+import { supabase } from '@/lib/supabase';
 
 const statusConfig: Record<string, { label: string; badge: string; icon: React.ElementType }> = {
   active: { label: 'Active', badge: 'success', icon: CheckCircle },
@@ -40,11 +41,47 @@ export default function UsersPage() {
   useEffect(() => {
     async function loadData() {
       const data = await getUsers();
-      if (data && data.length > 0) {
-        setUsers(data);
-      }
+      setUsers(data ?? []);
     }
-    loadData();
+
+    const handleFocus = () => {
+      void loadData();
+    };
+
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        void loadData();
+      }
+    };
+
+    void loadData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const channel = supabase
+      .channel('admin-users-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => { void loadData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+        () => { void loadData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'teachers' },
+        () => { void loadData(); }
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   const filtered = users.filter(u => {
@@ -83,6 +120,7 @@ export default function UsersPage() {
 
   const handleAddUser = async () => {
     if (!newUser.name.trim() || !newUser.email.trim()) return;
+
     const added = await addUser({
       name: newUser.name,
       email: newUser.email,
@@ -98,7 +136,9 @@ export default function UsersPage() {
       parentPhone: newUser.parentPhone,
       avatar: newUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     });
-    setUsers(prev => [added, ...prev]);
+
+    const refreshed = await getUsers();
+    setUsers(refreshed ?? [added]);
     setNewUser({
       name: '', email: '', phone: '', role: 'student', class: '8-A', department: 'Science',
       fatherName: '', motherName: '', parentEmail: '', parentPhone: '', avatar: ''

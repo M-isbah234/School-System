@@ -39,25 +39,38 @@ async function trySupabase<T>(fn: () => Promise<T>): Promise<T | null> {
 // ── USERS ──────────────────────────────────────────────────
 export async function getUsers(): Promise<AdminUser[]> {
   const cached = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
-  const result = await trySupabase(async () => {
-    const { data: profiles, error } = await supabase.from('profiles').select('*');
-    if (error || !profiles?.length) throw new Error('empty');
+
+  try {
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*');
+    if (profilesError) throw profilesError;
+
     const { data: students } = await supabase.from('students').select('*');
     const { data: teachers } = await supabase.from('teachers').select('*');
     const stuMap = new Map(students?.map(s => [s.id, s]) ?? []);
     const tchMap = new Map(teachers?.map(t => [t.id, t]) ?? []);
-    return profiles.map((p): AdminUser => {
+
+    const mappedUsers = (profiles ?? []).map((p): AdminUser => {
       const stu = stuMap.get(p.id) as any;
       const tch = tchMap.get(p.id) as any;
       return {
-        id: p.id, name: p.name, role: p.role as AdminUser['role'],
-        email: p.email, phone: p.phone || '', status: p.status as AdminUser['status'],
-        joinDate: p.join_date || '', class: stu?.class_name, department: tch?.department, subjects: tch?.subjects,
+        id: p.id,
+        name: p.name,
+        role: p.role as AdminUser['role'],
+        email: p.email,
+        phone: p.phone || '',
+        status: p.status as AdminUser['status'],
+        joinDate: p.join_date || '',
+        class: stu?.class_name,
+        department: tch?.department,
+        subjects: tch?.subjects,
       };
     });
-  });
-  if (result) { setLocal(USERS_KEY, result); return result; }
-  return cached;
+
+    setLocal(USERS_KEY, mappedUsers);
+    return mappedUsers;
+  } catch {
+    return cached;
+  }
 }
 
 export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Promise<AdminUser> {
@@ -71,42 +84,61 @@ export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Pr
     fatherName: (user as any).fatherName, motherName: (user as any).motherName,
     parentEmail: (user as any).parentEmail, parentPhone: (user as any).parentPhone,
   };
-  // fire-and-forget
-  void (async () => {
-    try {
-      await supabase.from('profiles').insert([{
-        id: newId, name: newUser.name, role: newUser.role,
-        email: newUser.email, phone: newUser.phone, status: newUser.status, join_date: newUser.joinDate,
-      }]);
-      if (newUser.role === 'student' && newUser.class) {
-        await supabase.from('students').insert([{ id: newId, roll_no: `SP-2026-${Date.now().toString().slice(-4)}`, class_name: newUser.class, section: 'A' }]);
-      } else if (newUser.role === 'teacher') {
-        await supabase.from('teachers').insert([{ id: newId, employee_id: `TCH-${Date.now().toString().slice(-3)}`, department: newUser.department || 'General', subjects: newUser.subjects || [] }]);
-      }
-    } catch { /* ignore */ }
-  })();
-  const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
-  const updated = [newUser, ...current];
-  setLocal(USERS_KEY, updated);
-  return newUser;
+
+  try {
+    await supabase.from('profiles').insert([{
+      id: newId, name: newUser.name, role: newUser.role,
+      email: newUser.email, phone: newUser.phone, status: newUser.status, join_date: newUser.joinDate,
+    }]);
+
+    if (newUser.role === 'student' && newUser.class) {
+      await supabase.from('students').insert([{ id: newId, roll_no: `SP-2026-${Date.now().toString().slice(-4)}`, class_name: newUser.class, section: 'A' }]);
+    } else if (newUser.role === 'teacher') {
+      await supabase.from('teachers').insert([{ id: newId, employee_id: `TCH-${Date.now().toString().slice(-3)}`, department: newUser.department || 'General', subjects: newUser.subjects || [] }]);
+    }
+
+    const freshUsers = await getUsers();
+    setLocal(USERS_KEY, freshUsers);
+    return freshUsers.find(u => u.id === newId) ?? newUser;
+  } catch {
+    const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
+    const updated = [newUser, ...current];
+    setLocal(USERS_KEY, updated);
+    return newUser;
+  }
 }
 
 export async function toggleUserStatus(id: string): Promise<AdminUser[]> {
   const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
   const target = current.find(u => u.id === id);
   const nextStatus: AdminUser['status'] = target?.status === 'active' ? 'inactive' : 'active';
-  void (async () => { try { await supabase.from('profiles').update({ status: nextStatus }).eq('id', id); } catch { } })();
-  const updated = current.map(u => u.id === id ? { ...u, status: nextStatus } : u);
-  setLocal(USERS_KEY, updated);
-  return updated;
+
+  try {
+    const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', id);
+    if (error) throw error;
+    const freshUsers = await getUsers();
+    setLocal(USERS_KEY, freshUsers);
+    return freshUsers;
+  } catch {
+    const updated = current.map(u => u.id === id ? { ...u, status: nextStatus } : u);
+    setLocal(USERS_KEY, updated);
+    return updated;
+  }
 }
 
 export async function deleteUser(id: string): Promise<AdminUser[]> {
-  void (async () => { try { await supabase.from('profiles').delete().eq('id', id); } catch { } })();
-  const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
-  const updated = current.filter(u => u.id !== id);
-  setLocal(USERS_KEY, updated);
-  return updated;
+  try {
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) throw error;
+    const freshUsers = await getUsers();
+    setLocal(USERS_KEY, freshUsers);
+    return freshUsers;
+  } catch {
+    const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
+    const updated = current.filter(u => u.id !== id);
+    setLocal(USERS_KEY, updated);
+    return updated;
+  }
 }
 
 // ── FEES ───────────────────────────────────────────────────
