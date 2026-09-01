@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { adminUsers, AdminUser, UserRole } from '@/lib/mockData';
 import { getUsers, addUser, toggleUserStatus, deleteUser } from '@/lib/dataService';
-import { supabase } from '@/lib/supabase';
 
 const statusConfig: Record<string, { label: string; badge: string; icon: React.ElementType }> = {
   active: { label: 'Active', badge: 'success', icon: CheckCircle },
@@ -41,9 +40,7 @@ export default function UsersPage() {
   useEffect(() => {
     async function loadData() {
       const data = await getUsers();
-      if (data && data.length > 0) {
-        setUsers(data);
-      }
+      setUsers(data ?? []);
     }
 
     const handleFocus = () => {
@@ -60,30 +57,9 @@ export default function UsersPage() {
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
 
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    try {
-      channel = supabase.channel(`admin-users-sync-${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { void loadData(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => { void loadData(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'teachers' }, () => { void loadData(); });
-
-      void channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') return;
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('Realtime sync unavailable, using manual refresh fallback.');
-        }
-      });
-    } catch (error) {
-      console.warn('Realtime subscription failed:', error);
-    }
-
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
     };
   }, []);
 
