@@ -41,7 +41,9 @@ export default function UsersPage() {
   useEffect(() => {
     async function loadData() {
       const data = await getUsers();
-      setUsers(data ?? []);
+      if (data && data.length > 0) {
+        setUsers(data);
+      }
     }
 
     const handleFocus = () => {

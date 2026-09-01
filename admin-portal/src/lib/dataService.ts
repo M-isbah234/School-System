@@ -10,7 +10,12 @@ function getLocal<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
   try {
     const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+      return fallback;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -25,27 +30,35 @@ function setLocal<T>(key: string, data: T) {
   }
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms = 1500): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error('timeout')), ms);
     promise.then(val => { clearTimeout(id); resolve(val); }).catch(err => { clearTimeout(id); reject(err); });
   });
 }
 
-async function trySupabase<T>(fn: () => Promise<T>): Promise<T | null> {
-  try { return await withTimeout(fn(), 1400); } catch { return null; }
+async function trySupabase<T>(fn: () => Promise<T>, ms = 6000): Promise<T | null> {
+  try { return await withTimeout(fn(), ms); } catch { return null; }
 }
 
 // ── USERS ──────────────────────────────────────────────────
 export async function getUsers(): Promise<AdminUser[]> {
   const cached = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
+  const safeFallback = cached && cached.length ? cached : adminUsers;
 
   const result = await trySupabase(async () => {
-    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*');
-    if (profilesError || !profiles) throw profilesError || new Error('empty');
+    const [
+      { data: profiles, error: profilesError },
+      { data: students },
+      { data: teachers }
+    ] = await Promise.all([
+      supabase.from('profiles').select('*'),
+      supabase.from('students').select('*'),
+      supabase.from('teachers').select('*')
+    ]);
 
-    const { data: students } = await supabase.from('students').select('*');
-    const { data: teachers } = await supabase.from('teachers').select('*');
+    if (profilesError || !profiles || !profiles.length) throw profilesError || new Error('empty');
+
     const stuMap = new Map(students?.map(s => [s.id, s]) ?? []);
     const tchMap = new Map(teachers?.map(t => [t.id, t]) ?? []);
 
@@ -70,13 +83,13 @@ export async function getUsers(): Promise<AdminUser[]> {
         parentPhone: stu?.parent_phone,
       };
     });
-  });
+  }, 6000);
 
   if (result && result.length) {
     setLocal(USERS_KEY, result);
     return result;
   }
-  return cached;
+  return safeFallback;
 }
 
 export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Promise<AdminUser> {

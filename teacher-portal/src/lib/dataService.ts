@@ -10,7 +10,17 @@ const MESSAGES_KEY = 'teacher_erp_messages';
 
 function getLocal<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
-  try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : fallback; } catch { return fallback; }
+  try {
+    const item = localStorage.getItem(key);
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+      return fallback;
+    }
+    return parsed;
+  } catch {
+    return fallback;
+  }
 }
 
 function setLocal<T>(key: string, data: T) {
@@ -18,15 +28,15 @@ function setLocal<T>(key: string, data: T) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch { }
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms = 1400): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms = 6000): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error('timeout')), ms);
     promise.then(val => { clearTimeout(id); resolve(val); }).catch(err => { clearTimeout(id); reject(err); });
   });
 }
 
-async function trySupabase<T>(fn: () => Promise<T>): Promise<T | null> {
-  try { return await withTimeout(fn(), 1400); } catch { return null; }
+async function trySupabase<T>(fn: () => Promise<T>, ms = 6000): Promise<T | null> {
+  try { return await withTimeout(fn(), ms); } catch { return null; }
 }
 
 // ── ATTENDANCE ─────────────────────────────────────────────
