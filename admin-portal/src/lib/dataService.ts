@@ -106,6 +106,51 @@ function isValidUUID(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
+async function postJson<T>(path: string, payload: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((data as { error?: string })?.error || 'Request failed');
+  }
+
+  return data as T;
+}
+
+async function patchJson<T>(path: string, payload: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((data as { error?: string })?.error || 'Request failed');
+  }
+
+  return data as T;
+}
+
+async function deleteJson<T>(path: string, payload: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((data as { error?: string })?.error || 'Request failed');
+  }
+
+  return data as T;
+}
+
 export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Promise<AdminUser> {
   const newId = (user.id && isValidUUID(user.id)) ? user.id : generateUUID();
   const newUser: AdminUser = {
@@ -119,36 +164,19 @@ export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Pr
   };
 
   try {
-    const { error: pErr } = await supabase.from('profiles').insert([{
-      id: newId, name: newUser.name, role: newUser.role,
-      email: newUser.email, phone: newUser.phone, status: newUser.status, join_date: newUser.joinDate,
-    }]);
-    if (pErr) console.warn('Profiles insert:', pErr.message);
-
-    if (newUser.role === 'student' && newUser.class) {
-      const { error: sErr } = await supabase.from('students').insert([{
-        id: newId,
-        roll_no: `SP-2026-${Date.now().toString().slice(-4)}`,
-        class_name: newUser.class,
-        section: 'A',
-        father_name: newUser.fatherName || null,
-        mother_name: newUser.motherName || null,
-        emergency_contact: newUser.parentPhone || null,
-      }]);
-      if (sErr) console.warn('Students insert:', sErr.message);
-    } else if (newUser.role === 'teacher') {
-      const { error: tErr } = await supabase.from('teachers').insert([{
-        id: newId,
-        employee_id: `TCH-${Date.now().toString().slice(-3)}`,
-        department: newUser.department || 'General',
-        subjects: newUser.subjects || [],
-      }]);
-      if (tErr) console.warn('Teachers insert:', tErr.message);
-    }
+    const result = await postJson<{ user?: AdminUser }>(`/api/admin/users`, {
+      user: {
+        ...newUser,
+        fatherName: (user as any).fatherName,
+        motherName: (user as any).motherName,
+        parentEmail: (user as any).parentEmail,
+        parentPhone: (user as any).parentPhone,
+      }
+    });
 
     const freshUsers = await getUsers();
     setLocal(USERS_KEY, freshUsers);
-    return freshUsers.find(u => u.id === newId) ?? newUser;
+    return result.user ?? freshUsers.find(u => u.id === newId) ?? newUser;
   } catch (err) {
     console.error('addUser error:', err);
     const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
@@ -165,13 +193,19 @@ export async function toggleUserStatus(id: string): Promise<AdminUser[]> {
 
   try {
     if (isValidUUID(id)) {
-      const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', id);
-      if (error) throw error;
-      const freshUsers = await getUsers();
+      const result = await patchJson<{ users?: AdminUser[] }>(`/api/admin/users`, {
+        action: 'toggle-status',
+        id,
+        status: nextStatus,
+      });
+
+      const freshUsers = result.users ?? await getUsers();
       setLocal(USERS_KEY, freshUsers);
       return freshUsers;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('toggleUserStatus failed through API route:', err);
+  }
 
   const updated = current.map(u => u.id === id ? { ...u, status: nextStatus } : u);
   setLocal(USERS_KEY, updated);
@@ -181,13 +215,18 @@ export async function toggleUserStatus(id: string): Promise<AdminUser[]> {
 export async function deleteUser(id: string): Promise<AdminUser[]> {
   try {
     if (isValidUUID(id)) {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (error) throw error;
-      const freshUsers = await getUsers();
+      const result = await deleteJson<{ users?: AdminUser[] }>(`/api/admin/users`, {
+        action: 'delete',
+        id,
+      });
+
+      const freshUsers = result.users ?? await getUsers();
       setLocal(USERS_KEY, freshUsers);
       return freshUsers;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('deleteUser failed through API route:', err);
+  }
 
   const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
   const updated = current.filter(u => u.id !== id);
