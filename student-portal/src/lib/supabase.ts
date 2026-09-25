@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const defaultUrl = 'https://mhyuvcadypeelveiryooo.supabase.co';
+const defaultUrl = 'https://mhyuvcadypeelveiyooo.supabase.co';
 const defaultAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oeXV2Y2FkeXBlZWx2ZWl5b29vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3MDA2OTcsImV4cCI6MjEwMjI3NjY5N30.ifUP2PmxvD4VSN1bLj1Up2lCClGVNHFrNHuyf0e3K6s';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
