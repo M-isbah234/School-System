@@ -39,6 +39,16 @@ async function trySupabase<T>(fn: () => Promise<T>, ms = 6000): Promise<T | null
   try { return await withTimeout(fn(), ms); } catch { return null; }
 }
 
+// ── STUDENTS ─────────────────────────────────────────────
+export async function getStudents(className: string = '8-A'): Promise<any[]> {
+  const result = await trySupabase(async () => {
+    const { data, error } = await supabase.from('students').select('*, profiles(name, roll_no, avatar_url)').eq('class_name', className);
+    if (error) throw error;
+    return data;
+  });
+  return result || [];
+}
+
 // ── ATTENDANCE ─────────────────────────────────────────────
 export async function getAttendanceRecords(className: string = '8-A'): Promise<AttendanceRecord[]> {
   const cached = getLocal<AttendanceRecord[]>(ATTENDANCE_KEY, todayAttendance).filter(a => !a.class || a.class === className);

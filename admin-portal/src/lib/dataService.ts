@@ -47,22 +47,17 @@ export async function getUsers(): Promise<AdminUser[]> {
   const safeFallback = cached && cached.length ? cached : adminUsers;
 
   const result = await trySupabase(async () => {
-    const [
-      { data: profiles, error: profilesError },
-      { data: students },
-      { data: teachers }
-    ] = await Promise.all([
-      supabase.from('profiles').select('*'),
-      supabase.from('students').select('*'),
-      supabase.from('teachers').select('*')
-    ]);
+    const res = await fetch('/api/admin/users');
+    if (!res.ok) throw new Error('Failed to fetch users');
+    
+    const { profiles, students, teachers } = await res.json();
 
-    if (profilesError || !profiles || !profiles.length) throw profilesError || new Error('empty');
+    if (!profiles || !profiles.length) throw new Error('empty');
 
-    const stuMap = new Map(students?.map(s => [s.id, s]) ?? []);
-    const tchMap = new Map(teachers?.map(t => [t.id, t]) ?? []);
+    const stuMap = new Map(students?.map((s: any) => [s.id, s]) ?? []);
+    const tchMap = new Map(teachers?.map((t: any) => [t.id, t]) ?? []);
 
-    return profiles.map((p): AdminUser => {
+    return profiles.map((p: any): AdminUser => {
       const stu = stuMap.get(p.id) as any;
       const tch = tchMap.get(p.id) as any;
       return {
