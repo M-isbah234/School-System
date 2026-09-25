@@ -10,7 +10,7 @@ const cleanUrl = rawUrl.trim().replace(/^["']|["']$/g, '');
 const cleanKey = rawKey.trim().replace(/^["']|["']$/g, '');
 
 const supabaseUrl = (cleanUrl && cleanUrl.startsWith('http')) ? cleanUrl : defaultUrl;
-const supabaseAnonKey = cleanKey || defaultAnonKey;
+const supabaseAnonKey = defaultAnonKey;
 
 // Browser client — uses anon key, respects Row Level Security
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
