@@ -1,6 +1,27 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
 
+export async function GET() {
+  try {
+    const supabase = createAdminClient();
+    const [
+      { data: profiles, error: profilesError },
+      { data: students, error: studentsError },
+      { data: teachers, error: teachersError }
+    ] = await Promise.all([
+      supabase.from('profiles').select('*'),
+      supabase.from('students').select('*'),
+      supabase.from('teachers').select('*')
+    ]);
+
+    if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 400 });
+
+    return NextResponse.json({ profiles, students, teachers });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unexpected error' }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { user } = await request.json();
