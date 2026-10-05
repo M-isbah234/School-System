@@ -294,27 +294,33 @@ export async function getNotices(): Promise<Notice[]> {
 
 export async function addNotice(notice: Omit<Notice, 'id'>): Promise<Notice[]> {
   const newNotice: Notice = { ...notice, id: `N-${Date.now().toString().slice(-5)}` };
-  void (async () => {
-    try {
-      await supabase.from('notices').insert([{
-        title: notice.title, content: notice.content,
-        date: notice.date || new Date().toISOString().split('T')[0],
-        category: notice.category, status: notice.status || 'approved', author_name: notice.author || 'Admin',
-      }]);
-    } catch { }
-  })();
-  const current = getLocal<Notice[]>(NOTICES_KEY, notices);
-  const updated = [newNotice, ...current];
-  setLocal(NOTICES_KEY, updated);
-  return updated;
+  try {
+    const result = await postJson<{ notice?: Notice }>(`/api/admin/notices`, { notice });
+    const freshNotices = await getNotices();
+    setLocal(NOTICES_KEY, freshNotices);
+    return freshNotices;
+  } catch (err) {
+    console.error('addNotice error:', err);
+    const current = getLocal<Notice[]>(NOTICES_KEY, notices);
+    const updated = [newNotice, ...current];
+    setLocal(NOTICES_KEY, updated);
+    return updated;
+  }
 }
 
 export async function deleteNotice(id: string): Promise<Notice[]> {
-  void (async () => { try { await supabase.from('notices').delete().eq('id', id); } catch { } })();
-  const current = getLocal<Notice[]>(NOTICES_KEY, notices);
-  const updated = current.filter(n => n.id !== id);
-  setLocal(NOTICES_KEY, updated);
-  return updated;
+  try {
+    await deleteJson(`/api/admin/notices`, { id });
+    const freshNotices = await getNotices();
+    setLocal(NOTICES_KEY, freshNotices);
+    return freshNotices;
+  } catch (err) {
+    console.error('deleteNotice error:', err);
+    const current = getLocal<Notice[]>(NOTICES_KEY, notices);
+    const updated = current.filter(n => n.id !== id);
+    setLocal(NOTICES_KEY, updated);
+    return updated;
+  }
 }
 
 // ── APPROVALS ──────────────────────────────────────────────

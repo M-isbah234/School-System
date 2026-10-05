@@ -289,7 +289,7 @@ export default function UsersPage() {
 
                           {/* Admin Portal Visitor Button */}
                           <a
-                            href={user.role === 'teacher' ? 'http://localhost:3001' : 'http://localhost:3002'}
+                            href={user.role === 'teacher' ? (process.env.NEXT_PUBLIC_TEACHER_PORTAL_URL || 'http://localhost:3001') : (process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || 'http://localhost:3002')}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors flex items-center gap-1"
@@ -360,9 +360,9 @@ export default function UsersPage() {
                 </p>
 
                 <div className="mt-3 flex gap-2">
-                  <a
-                    href={selectedUser.role === 'teacher' ? 'http://localhost:3001' : 'http://localhost:3002'}
-                    target="_blank"
+                    <a
+                      href={selectedUser.role === 'teacher' ? (process.env.NEXT_PUBLIC_TEACHER_PORTAL_URL || 'http://localhost:3001') : (process.env.NEXT_PUBLIC_STUDENT_PORTAL_URL || 'http://localhost:3002')}
+                      target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-sm btn-primary text-xs flex items-center gap-1.5"
                   >
