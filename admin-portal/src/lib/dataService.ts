@@ -172,8 +172,11 @@ export async function addUser(user: Omit<AdminUser, 'id'> & { id?: string }): Pr
     const freshUsers = await getUsers();
     setLocal(USERS_KEY, freshUsers);
     return result.user ?? freshUsers.find(u => u.id === newId) ?? newUser;
-  } catch (err) {
+  } catch (err: any) {
     console.error('addUser error:', err);
+    if (typeof window !== 'undefined') {
+      alert(`Failed to add user: ${err.message || 'Unknown error'}`);
+    }
     const current = getLocal<AdminUser[]>(USERS_KEY, adminUsers);
     const updated = [newUser, ...current];
     setLocal(USERS_KEY, updated);
