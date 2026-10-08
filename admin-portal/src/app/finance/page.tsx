@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { TopBar } from '@/components/AppLayout';
+import { Toaster, toast } from 'react-hot-toast';
 import {
   Search,
   Filter,
@@ -12,10 +13,11 @@ import {
   TrendingUp,
   X,
   Check,
-  Plus
+  Plus,
+  MessageCircle
 } from 'lucide-react';
-import { FeeRecord, adminFeeRecords } from '@/lib/mockData';
-import { getFees, updateFeeStatus, addFeeRecord } from '@/lib/dataService';
+import { FeeRecord, adminFeeRecords, AdminUser } from '@/lib/mockData';
+import { getFees, updateFeeStatus, addFeeRecord, getUsers } from '@/lib/dataService';
 
 const statusConfig: Record<string, { badge: string; icon: React.ElementType }> = {
   Paid: { badge: 'badge badge-emerald', icon: CheckCircle },
@@ -142,14 +144,48 @@ export default function FinanceDesk() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [challanRecord, setChallanRecord] = useState<FeeRecord | null>(null);
   const [paidRecord, setPaidRecord] = useState<FeeRecord | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [customNote, setCustomNote] = useState("Please pay the dues before the 10th to avoid late fees.");
 
   useEffect(() => {
     async function loadData() {
       const data = await getFees();
       if (data && data.length > 0) setRecords(data);
+      const uData = await getUsers();
+      if (uData && uData.length > 0) setUsers(uData);
     }
     loadData();
   }, []);
+
+  const handleSendWhatsAppReminder = (record: FeeRecord) => {
+    const studentUser = users.find(u => u.id === record.studentId);
+    if (!studentUser) {
+      toast.error('Student details not found! Wait for data to load.');
+      return;
+    }
+
+    const parentPhone = studentUser.parentPhone || studentUser.phone;
+    if (!parentPhone) {
+      toast.error('Parent phone number not available!');
+      return;
+    }
+
+    let cleanPhone = parentPhone.replace(/[^0-9]/g, "");
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '92' + cleanPhone.substring(1);
+    }
+
+    const balance = record.amount - (record.paidAmount || 0);
+    const parentName = studentUser.fatherName || studentUser.motherName || 'Parent/Guardian';
+
+    const messageText = `Hello ${parentName},\n\nThis is a gentle reminder regarding the pending fee balance of PKR ${balance.toLocaleString('en-PK')} for ${record.studentName} for the month of ${record.month} ${record.year}.\n\nNote: ${customNote}\n\nThank you,\nSchool Administration`;
+
+    const encodedText = encodeURIComponent(messageText);
+    const waUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
+
+    toast.success("Opening WhatsApp...");
+    window.open(waUrl, "whatsapp_web");
+  };
 
   const filtered = records.filter((r) => {
     const matchSearch =
@@ -173,9 +209,27 @@ export default function FinanceDesk() {
 
   return (
     <div>
+      <Toaster position="top-right" />
       <TopBar title="Finance Desk" subtitle="Generate challans, track payments & manage fee ledger — Supabase Connected" />
 
       <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+        
+        <div className="card p-4 bg-emerald-50/50 border border-emerald-100 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              WhatsApp Reminder Note
+            </label>
+            <input 
+              type="text" 
+              className="input w-full bg-white" 
+              value={customNote} 
+              onChange={e => setCustomNote(e.target.value)} 
+              placeholder="e.g. Please pay before the 10th..."
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Collected', value: formatPKR(totalCollected), icon: TrendingUp, cls: 'accent-emerald' },
@@ -273,8 +327,15 @@ export default function FinanceDesk() {
                           </td>
                           <td className="space-x-2">
                             <button onClick={() => setChallanRecord(record)} className="btn btn-secondary btn-sm">Challan</button>
-                            {record.status !== 'Paid' && (
-                              <button onClick={() => setPaidRecord(record)} className="btn btn-primary btn-sm">Mark Paid</button>
+                            {record.status !== 'Paid' ? (
+                              <>
+                                <button onClick={() => setPaidRecord(record)} className="btn btn-primary btn-sm">Mark Paid</button>
+                                <button onClick={() => handleSendWhatsAppReminder(record)} className="btn bg-emerald-500 hover:bg-emerald-600 text-white btn-sm flex-inline items-center gap-1.5 ml-2">
+                                  <MessageCircle className="w-3.5 h-3.5" /> Reminder
+                                </button>
+                              </>
+                            ) : (
+                              <span className="badge badge-emerald ml-2">Fully Paid</span>
                             )}
                           </td>
                         </tr>
